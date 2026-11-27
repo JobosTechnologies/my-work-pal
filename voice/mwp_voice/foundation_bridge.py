@@ -267,6 +267,26 @@ class VoiceBridge:
             summary=f"Follow up with {deal['contact_name']} ({deal['client_name']})",
         )
 
+    def propose_email(
+        self, to: str, subject: str, body: str, summary: str | None = None
+    ) -> dict[str, Any]:
+        """Queue an email as a pending action in ``requested`` (sends nothing).
+
+        The general form of :meth:`seed_follow_up`: the action waits in the
+        Review Queue until the gateway signs a clear yes and :meth:`execute`
+        runs it through the guarded path.
+        """
+        import state_db
+
+        return state_db.create_pending_action(
+            self._config,
+            "gmail.send",
+            "demo",
+            to,
+            {"to": to, "subject": subject, "body": body},
+            summary=summary or f"Send email to {to}: {subject}",
+        )
+
     # -- acting (only ever on gateway-approved actions) --------------------
 
     def execute(self, action_id: str) -> ExecutionOutcome:

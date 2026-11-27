@@ -20,6 +20,8 @@ provisioned yet; see "What remains for real telephony" below.
 | `mwp_voice/mock_provider.py` | A full call with no phone: scripted owner lines drive the real engine, gateway, and execution path; the record is transcript + events + audit. |
 | `mwp_voice/scheduler.py` | Outbound logic on the foundation's cron store: owner-set morning call time, quiet hours (held and logged, wake-up exception), the 10/30-minute retry pattern, the urgent-call daily limit, bad-time notes. Every decision is logged. It decides; it does not dial. |
 | `mwp_voice/livekit_worker.py` | The LiveKit Agents worker (written against livekit-agents 1.9): session, barge-in, and speech around the same engine the mock suite proves. |
+| `mwp_voice/free_conversation.py` | Free conversation mode: a real LLM talks, with the bridge as tools. Approval still reaches the gateway only through worker code classifying the owner's transcribed words — never through a tool. |
+| `mwp_voice/voice_config.py` | The settings, resolved in one place: `MWP_TTS_MODEL` / `MWP_TTS_VOICE` (which hosted voice speaks), `MWP_CONVERSATION_MODE` (`scripted` / `free`), `MWP_LLM_MODEL`. |
 | `mwp_voice/demo_call.py` | Two scripted calls, printed with checks: the full loop, and stop-the-task. |
 | `mwp_voice/local_speech_check.py` | Exercises the local speech setting once: Kokoro speaks a line, faster-whisper transcribes it back, timings printed. |
 
@@ -41,6 +43,28 @@ shape exactly:
    run later; an unclear reply is asked again, then held open — never
    guessed into an approval.
 
+## Conversation modes and the speaking voice
+
+`MWP_CONVERSATION_MODE` picks how a call talks. `scripted` (the WP2
+engine above) is the fallback and stays intact. `free` — the default
+since 2026-11-27, after its mock end-to-end run and the full suite
+passed — hands the conversation to a real LLM (`MWP_LLM_MODEL`, default
+`google/gemma-4-31b-it`, LiveKit Inference's recommended voice-agent
+model) with the bridge as tools and the conduct in its system prompt.
+The approval separation above holds in both modes: in free mode the
+gateway is reached only from the worker's transcription hook, which
+classifies the owner's actual words with the same decision vocabulary
+as the scripted engine. There is no approve tool.
+
+The speaking voice is a setting, not a constant: LiveKit Inference
+takes it inside the TTS model string (`cartesia/sonic-3:{voice_id}`),
+resolved from `MWP_TTS_MODEL` / `MWP_TTS_VOICE`. The pilot default is
+Cartesia's Jacqueline (American female, warm and natural), after the
+owner rejected the model-default heavy male voice on the first live
+calls. The researched shortlist — Cartesia, ElevenLabs (the Nigerian
+voices), Deepgram Aura-2, and the open-source options with their
+licenses — is in `docs/voice-options.md`.
+
 ## Run the proof
 
 From the repo root, with the foundation venv:
@@ -49,7 +73,8 @@ From the repo root, with the foundation venv:
 PYTHONPATH=voice .venv/bin/python -m mwp_voice.demo_call
 PYTHONPATH=voice .venv/bin/python -m pytest tests/test_voice_bridge.py \
     tests/test_voice_conversation.py tests/test_voice_scheduler.py \
-    tests/test_voice_speech.py tests/test_voice_livekit.py
+    tests/test_voice_speech.py tests/test_voice_livekit.py \
+    tests/test_voice_free_mode.py
 ```
 
 `tests/test_voice_livekit.py` additionally drives the engine through a real

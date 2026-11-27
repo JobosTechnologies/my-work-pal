@@ -9,15 +9,25 @@ voice/requirements-voice.txt:
   (barge-in) handling, and speech in and out. When the owner interrupts,
   the session stops the current speech itself; the engine's ``interrupt``
   hook is called so queued lines are dropped too.
-* The engine owns the conversation: brief, queue, read-back, repairs.
-* The gateway owns approval. This module holds the bridge's gateway (the
-  human-channel side of the worker) and passes a spoken clear yes to it,
-  exactly as the mock driver does. The engine never sees it.
+* The conversation owns the talking, in one of two modes
+  (``MWP_CONVERSATION_MODE``, see voice_config.py): ``scripted`` plugs
+  the conversation engine in at ``llm_node`` (the engine owns the
+  conversation: brief, queue, read-back, repairs; the gateway owns
+  approval); ``free`` gives a real LLM the floor with the foundation
+  bridge as tools, and approval still reaches the gateway only through
+  worker code reading the owner's transcribed words
+  (free_conversation.py). Either way this module holds the bridge's
+  gateway (the human-channel side of the worker); the conversation
+  layer never sees it.
 * Speech is the latency dial: by default the session uses LiveKit's hosted
   inference speech models (fast, for judging call feel); the local setting
   (faster-whisper + Kokoro) attaches behind the same session shape in a
-  later step. The turn-detection model is LiveKit's own and sits under the
-  separate LiveKit Model License, not Apache-2.0 — see voice/README.md.
+  later step. The speaking voice is part of the dial: LiveKit Inference
+  selects it inside the TTS model string (``cartesia/sonic-3:{voice_id}``),
+  resolved from ``MWP_TTS_MODEL`` / ``MWP_TTS_VOICE`` by voice_config.py —
+  see docs/voice-options.md. The turn-detection model is LiveKit's own and
+  sits under the separate LiveKit Model License, not Apache-2.0 — see
+  voice/README.md.
 
 What this stage does NOT do: no phone number, SIP trunk, or LiveKit
 account is provisioned, and outbound dialling raises until one is (the
@@ -37,6 +47,12 @@ from typing import Any
 
 from .conversation import ConversationEngine
 from .foundation_bridge import VoiceBridge
+from .free_conversation import FreeCallState, build_instructions
+from .voice_config import (
+    resolve_conversation_mode,
+    resolve_llm_model,
+    resolve_tts,
+)
 
 
 def _build_bridge() -> VoiceBridge:
@@ -139,23 +155,106 @@ class _EngineAgent:
         return MyWorkPalAgent()
 
 
+class _FreeAgent:
+    """Factory kept separate so the module imports without livekit present."""
+
+    @staticmethod
+    def build(
+        bridge: VoiceBridge,
+        state: FreeCallState,
+        *,
+        assistant_name: str,
+        business_name: str,
+        owner_name: str,
+        llm: Any,
+    ) -> Any:
+        from livekit.agents import Agent, function_tool
+
+        class MyWorkPalFreeAgent(Agent):
+            """A real LLM converses; the bridge is its only reach.
+
+            The tools delegate to FreeCallState (worker-side code). There
+            is deliberately no approve tool: the gateway is reached only
+            from the worker's transcription hook, which classifies the
+            owner's actual words. ``llm`` is a LiveKit Inference model
+            string in production, or a stand-in LLM in tests.
+            """
+
+            def __init__(self) -> None:
+                super().__init__(
+                    instructions=build_instructions(
+                        assistant_name=assistant_name,
+                        business_name=business_name,
+                        owner_name=owner_name,
+                    ),
+                    llm=llm,
+                )
+                self._mwp_state = state
+
+            async def on_enter(self) -> None:
+                await self.session.say(
+                    f"Hello, this is {assistant_name}, your assistant "
+                    f"from {business_name}.",
+                    allow_interruptions=True,
+                )
+                await self.session.say(
+                    f"Am I speaking with {owner_name}?",
+                    allow_interruptions=True,
+                )
+
+            @function_tool()
+            async def morning_brief(self) -> str:
+                """Read today's morning brief: schedule, inbox highlights, and anything waiting."""
+                return self._mwp_state.morning_brief()
+
+            @function_tool()
+            async def review_queue(self) -> str:
+                """List the actions waiting in the review queue, with their ids."""
+                return self._mwp_state.review_queue()
+
+            @function_tool()
+            async def propose_email(self, to: str, subject: str, body: str) -> str:
+                """Propose an email. This queues it for approval; it does NOT send anything."""
+                return self._mwp_state.propose_email(to, subject, body)
+
+            @function_tool()
+            async def read_back(self, action_id: str) -> str:
+                """Get the exact read-back text for a waiting action, to speak before asking for a decision."""
+                return self._mwp_state.read_back(action_id)
+
+            @function_tool()
+            async def execute_action(self, action_id: str) -> str:
+                """Run an action the owner has approved after its read-back. Refuses if it is not approved."""
+                return self._mwp_state.execute(action_id)
+
+            @function_tool()
+            async def cancel_action(self, action_id: str) -> str:
+                """Cancel a waiting action so it can never be sent."""
+                return self._mwp_state.cancel(action_id)
+
+            @function_tool()
+            async def audit_lookup(self, action_id: str) -> str:
+                """Look up what the audit trail records for an action, to answer 'why did you do that?'."""
+                return self._mwp_state.audit_lookup(action_id)
+
+        return MyWorkPalFreeAgent()
+
+
 async def _entrypoint(ctx: Any) -> None:
     from livekit import agents
     from livekit.agents import AgentSession
 
     bridge = _build_bridge()
-    engine = ConversationEngine(
-        bridge,
-        assistant_name=os.environ.get("MWP_ASSISTANT_NAME", "Pal"),
-        business_name=os.environ.get("MWP_BUSINESS_NAME", "Sample Co"),
-        owner_name=os.environ.get("MWP_OWNER_NAME", "the owner"),
-    )
+    assistant_name = os.environ.get("MWP_ASSISTANT_NAME", "Pal")
+    business_name = os.environ.get("MWP_BUSINESS_NAME", "Sample Co")
+    owner_name = os.environ.get("MWP_OWNER_NAME", "the owner")
     session_kwargs: dict[str, Any] = {}
     # Hosted inference speech (the dial's fast setting) when configured.
     if os.environ.get("MWP_STT_MODEL"):
         session_kwargs["stt"] = os.environ["MWP_STT_MODEL"]
-    if os.environ.get("MWP_TTS_MODEL"):
-        session_kwargs["tts"] = os.environ["MWP_TTS_MODEL"]
+    tts = resolve_tts()
+    if tts is not None:
+        session_kwargs["tts"] = tts
     try:
         from livekit.plugins import silero
 
@@ -164,7 +263,33 @@ async def _entrypoint(ctx: Any) -> None:
         pass  # VAD is an enhancement; the session still runs without it.
     session = AgentSession(**session_kwargs)
     await ctx.connect()
-    await session.start(_EngineAgent.build(bridge, engine), room=ctx.room)
+    if resolve_conversation_mode() == "free":
+        state = FreeCallState(bridge, owner_name=owner_name)
+
+        def _on_owner_words(event: Any) -> None:
+            # The one road from speech to the gateway in free mode: the
+            # owner's own transcribed words, classified by worker code.
+            if getattr(event, "is_final", False):
+                state.note_owner_utterance(event.transcript)
+
+        session.on("user_input_transcribed", _on_owner_words)
+        agent = _FreeAgent.build(
+            bridge,
+            state,
+            assistant_name=assistant_name,
+            business_name=business_name,
+            owner_name=owner_name,
+            llm=resolve_llm_model(),
+        )
+    else:
+        engine = ConversationEngine(
+            bridge,
+            assistant_name=assistant_name,
+            business_name=business_name,
+            owner_name=owner_name,
+        )
+        agent = _EngineAgent.build(bridge, engine)
+    await session.start(agent, room=ctx.room)
 
 
 def place_outbound_call(*_args: Any, **_kwargs: Any) -> None:
