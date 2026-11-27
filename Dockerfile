@@ -6,6 +6,9 @@
 # via MWP_STT_MODEL / MWP_TTS_MODEL (LiveKit hosted inference).
 FROM python:3.12-slim
 WORKDIR /app
+# sounddevice (a livekit-agents core dependency) needs the PortAudio
+# shared library at runtime; the slim image does not carry it.
+RUN apt-get update && apt-get install -y --no-install-recommends libportaudio2 && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt ./requirements.txt
 COPY voice/requirements-voice.txt ./requirements-voice.txt
 RUN pip install --no-cache-dir -r requirements.txt -r requirements-voice.txt

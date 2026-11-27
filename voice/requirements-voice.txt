@@ -13,4 +13,9 @@ soundfile>=0.12,<1
 # faster-whisper 1.2 passes metadata_errors to av.open(); PyAV 15+
 # removed that argument, so an unpinned install resolves to a broken
 # pairing (found during the WP2 local speech exercise). Pin below it.
-av>=12,<15
+# Pinned exactly to 14.2.0: it is the newest <15 release that ships
+# prebuilt cp312 wheels on PyPI. 14.4.0 (what >=12,<15 resolved to)
+# is source-only on PyPI and fails to build in slim images without a
+# C toolchain and FFmpeg 7 headers (Railway build failure, 2026-11-27).
+# livekit-agents 1.9 requires av>=14, which 14.2.0 satisfies.
+av==14.2.0
