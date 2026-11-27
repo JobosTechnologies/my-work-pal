@@ -276,6 +276,10 @@ class WorkspaceClient(abc.ABC):
 # a class or a factory function; both are called with (config).
 _PROVIDER_REGISTRY: dict[str, tuple[str, str]] = {
     "google_api": ("providers.google_workspace", "GoogleWorkspaceClient"),
+    # WP5 sample provider: seeded Gmail/Calendar data, no credentials, no
+    # network. Chosen explicitly by config so brief/queue flows can run end
+    # to end before a real account is connected; never a live fallback.
+    "sample_google": ("providers.sample_google_workspace", "SampleGoogleWorkspaceClient"),
     # Pre-registered; modules authored by later phases.
     "m365": ("providers.m365_graph", "M365GraphClient"),
     "agent": ("providers.agent_workspace", "AgentWorkspaceClient"),

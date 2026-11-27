@@ -66,6 +66,34 @@ CAPABILITIES: dict[str, dict[str, bool]] = {
         "contacts.update": True,
         "contacts.delete": True,
     },
+    # WP5 sample provider — providers.sample_google_workspace. Seeded data,
+    # no credentials, no network; mirrors the google_api surface the brief
+    # and Review Queue use so WP5 flows run before a real account connects.
+    "sample_google": {
+        "mail.search": True,
+        "mail.draft": True,
+        "mail.send": True,           # guarded; lands in an in-memory outbox only
+        "mail.list_folders": False,  # Gmail uses labels, not folders
+        "mail.move": False,
+        "mail.archive": False,
+        "mail.trash": False,
+        "mail.list_tags": True,
+        "mail.tag": False,
+        "mail.create_tag": False,
+        "calendar.list": True,
+        "calendar.create": True,
+        "calendar.update": True,
+        "calendar.cancel": True,
+        "files.search": True,
+        "files.upload": True,        # records metadata only; nothing is uploaded
+        "files.download": False,
+        "files.trash": False,
+        "files.untrash": False,
+        "contacts.list": True,
+        "contacts.create": False,
+        "contacts.update": False,
+        "contacts.delete": False,
+    },
     # Microsoft 365 (Graph) provider — providers.m365_graph.M365GraphClient.
     # Every neutral action below is implemented over Microsoft Graph REST v1.0.
     # mail.send is destructive (env-gated identically to gmail.send).

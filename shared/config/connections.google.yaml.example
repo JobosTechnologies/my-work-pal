@@ -1,0 +1,77 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# My Work Pal — Google connection template (WP5)
+#
+# One copy of this file per business owner. It describes HOW the assistant
+# connects to the owner's Gmail and Google Calendar through direct Google
+# APIs. It never contains a secret: credential values live in the host's
+# secret store and are referenced here by environment-variable name or by
+# file path only.
+#
+# The consent screen the owner sees during sign-in shows "My Work Pal" by
+# JobOS Labs — that name comes from the OAuth client in the JobOS Labs
+# Google Cloud project (see docs/wp5-connections.md for the checklist),
+# never from a third-party connector service.
+# ─────────────────────────────────────────────────────────────────────────────
+
+integrations:
+  workspace:
+    # google_api  = the real account, through direct Google APIs.
+    # sample_google = seeded sample data, no credentials, no network.
+    #               Used for demos and tests before a real account connects;
+    #               it is never a silent fallback for google_api.
+    provider: google_api
+    mode: direct
+
+google:
+  # The mailbox/calendar the assistant acts as — the owner's own account.
+  account_email: "owner@yourbusiness.example"
+
+  auth:
+    # oauth_user      — the owner signs in once with Google (recommended for
+    #                   owners; works for gmail.com and Workspace accounts).
+    # service_account — Google Workspace domains only: a service account
+    #                   with domain-wide delegation, authorised by the
+    #                   domain admin. Uses the legacy keys further below.
+    mode: oauth_user
+
+    oauth:
+      # OAuth client from the JobOS Labs Google Cloud project. The values
+      # are provided through the secure flow and read from the environment;
+      # only the variable NAMES live here.
+      client_id_env: "MWP_GOOGLE_OAUTH_CLIENT_ID"
+      client_secret_env: "MWP_GOOGLE_OAUTH_CLIENT_SECRET"
+      # Where the host stores the owner's token after consent. Encrypted at
+      # rest by the host, one file per owner instance, never in this repo.
+      token_path: "~/.myworkpal/yourbusiness/google-token.json"
+      # Least-access scopes, one per capability the owner turns on:
+      scopes:
+        - "https://www.googleapis.com/auth/gmail.readonly"    # brief + read one email in full
+        - "https://www.googleapis.com/auth/gmail.compose"     # draft replies into the Review Queue
+        - "https://www.googleapis.com/auth/gmail.send"        # send — only as the guarded execution of an approved draft
+        - "https://www.googleapis.com/auth/calendar.readonly" # brief + schedule questions
+        - "https://www.googleapis.com/auth/calendar.events"   # move an event — only as the guarded execution of an approved change
+
+    # ── service_account mode only (Google Workspace domains) ──────────────
+    # These are the keys the foundation's google_api provider already reads.
+    # service_account_path: "~/.myworkpal/yourbusiness/google-service-account.json"
+    # domain: "yourbusiness.example"
+    # delegate_email: "owner@yourbusiness.example"
+    # account_alias: "yourbusiness"
+
+connections:
+  # A live probe (a real read against Google) runs only when this is true
+  # AND every local check in connection_health.py passes. Keep it false
+  # until the pilot stage connects a real account.
+  allow_live_probe: false
+
+  # Activepieces (self-hosted by JobOS Labs) is the connection layer for
+  # tools beyond Gmail/Calendar. Phase 1 proves it running; Gmail and
+  # Calendar keep flowing through the direct Google APIs above.
+  activepieces:
+    url: "https://pieces.jobos.example"   # the JobOS Labs self-hosted instance
+    project_per_owner: true               # one Activepieces project per owner instance
+    mcp:
+      # The instance's MCP server is how the agent layer reaches the pieces
+      # an owner connected. Per-owner endpoint + token, issued by the host.
+      endpoint: ""                        # filled in by the host at provisioning
+      token_env: "MWP_ACTIVEPIECES_MCP_TOKEN"
