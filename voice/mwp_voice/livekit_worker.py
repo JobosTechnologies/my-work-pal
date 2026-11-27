@@ -29,19 +29,26 @@ voice/requirements-voice.txt:
   sits under the separate LiveKit Model License, not Apache-2.0 — see
   voice/README.md.
 
-What this stage does NOT do: no phone number, SIP trunk, or LiveKit
-account is provisioned, and outbound dialling raises until one is (the
-scheduler's decisions are proven separately; placing the call is the
-telephony step). Running this file without livekit-agents installed, or
-without LIVEKIT_URL / LIVEKIT_API_KEY / LIVEKIT_API_SECRET in the
-environment, stops with a precise message instead of a stack trace.
+Outbound calling (WP7): the scheduler (scheduler.py) still owns every
+decision — when a call may be placed, quiet hours, retries, the urgent
+limit. This module only turns a decision into a ringing phone, and only
+when outbound is provisioned in the environment (voice_config.py):
+``MWP_OUTBOUND_TRUNK_ID`` for a trunk that already exists in the LiveKit
+project, or the carrier SIP settings (SignalWire) from which the worker
+creates the trunk at start. With neither set, dialling raises a precise
+"not provisioned" error, exactly as before WP7. Running this file
+without livekit-agents installed, or without LIVEKIT_URL /
+LIVEKIT_API_KEY / LIVEKIT_API_SECRET in the environment, stops with a
+precise message instead of a stack trace.
 """
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 from typing import Any
 
@@ -49,8 +56,11 @@ from .conversation import ConversationEngine
 from .foundation_bridge import VoiceBridge
 from .free_conversation import FreeCallState, build_instructions
 from .voice_config import (
+    OUTBOUND_TRUNK_NAME,
+    OutboundConfig,
     resolve_conversation_mode,
     resolve_llm_model,
+    resolve_outbound_config,
     resolve_tts,
 )
 
@@ -292,18 +302,134 @@ async def _entrypoint(ctx: Any) -> None:
     await session.start(agent, room=ctx.room)
 
 
-def place_outbound_call(*_args: Any, **_kwargs: Any) -> None:
-    """Dialling out is deliberately not wired in this stage.
+# ---------------------------------------------------------------------------
+# Outbound calling (WP7): the telephony half of the scheduler's decisions.
+#
+# The scheduler (scheduler.py) decides place / hold / stop and never dials.
+# The functions below are the other half: given a decision to place, they
+# ring the owner's phone through the LiveKit SIP API and put this worker's
+# agent ("my-work-pal") in the room, so the call that answers is the same
+# assistant as an inbound call. Nothing here decides *whether* to call;
+# the worker dials only when told.
+# ---------------------------------------------------------------------------
 
-    The scheduler (scheduler.py) already decides when a call may be placed;
-    turning a decision into a ringing phone needs a provisioned number and
-    SIP trunk (LiveKit SIP CreateSIPParticipant), which is a later WP2 step
-    and needs Ibrahim's LiveKit account. Raising here keeps that boundary
-    impossible to cross by accident.
+AGENT_NAME = "my-work-pal"
+
+NOT_PROVISIONED_MESSAGE = (
+    "outbound telephony is not provisioned: set MWP_OUTBOUND_TRUNK_ID, "
+    "or the carrier SIP settings (MWP_SIP_TRUNK_ADDRESS, MWP_SIP_USERNAME, "
+    "MWP_SIP_PASSWORD, MWP_CALLER_ID)"
+)
+
+
+async def ensure_outbound_trunk(lk: Any, config: OutboundConfig) -> str:
+    """Return the outbound trunk id, creating the trunk if configured to.
+
+    With ``MWP_OUTBOUND_TRUNK_ID`` set, that trunk is used as-is and no
+    API call is made. With the carrier SIP settings, the trunk the worker
+    created on an earlier start is reused (matched by name,
+    ``OUTBOUND_TRUNK_NAME``); only the first start creates it.
     """
-    raise RuntimeError(
-        "outbound telephony is not provisioned in this stage: no number, "
-        "no SIP trunk, no LiveKit account credentials"
+    if config.trunk_id:
+        return config.trunk_id
+    from livekit import api
+
+    existing = await lk.sip.list_sip_outbound_trunk(
+        api.ListSIPOutboundTrunkRequest()
+    )
+    for trunk in existing.items:
+        if trunk.name == OUTBOUND_TRUNK_NAME:
+            return trunk.sip_trunk_id
+    created = await lk.sip.create_sip_outbound_trunk(
+        api.CreateSIPOutboundTrunkRequest(
+            trunk=api.SIPOutboundTrunkInfo(
+                name=OUTBOUND_TRUNK_NAME,
+                address=config.address,
+                numbers=[config.caller_id],
+                auth_username=config.username,
+                auth_password=config.password,
+            )
+        )
+    )
+    return created.sip_trunk_id
+
+
+async def place_outbound_call_async(
+    to_number: str,
+    *,
+    reason: str = "",
+    config: OutboundConfig | None = None,
+    lk: Any = None,
+) -> dict[str, str]:
+    """Place one outbound call and put the agent in its room.
+
+    ``to_number`` is the number to ring (E.164). ``reason`` is the
+    scheduler's reason for the call (morning brief, urgent, a retry); it
+    travels in the dispatch metadata and is never a decision made here.
+    Waits until the callee answers, so the caller learns the outcome.
+    Returns the room, trunk and participant identifiers for the call log.
+    """
+    config = resolve_outbound_config() if config is None else config
+    if not config.provisioned:
+        raise RuntimeError(NOT_PROVISIONED_MESSAGE)
+    from livekit import api
+
+    own_client = lk is None
+    if own_client:
+        lk = api.LiveKitAPI()
+    try:
+        trunk_id = await ensure_outbound_trunk(lk, config)
+        room_name = f"mwp-outbound-{uuid.uuid4().hex[:12]}"
+        await lk.agent_dispatch.create_dispatch(
+            api.CreateAgentDispatchRequest(
+                agent_name=AGENT_NAME,
+                room=room_name,
+                metadata=json.dumps(
+                    {"direction": "outbound", "reason": reason, "to": to_number}
+                ),
+            )
+        )
+        participant = await lk.sip.create_sip_participant(
+            api.CreateSIPParticipantRequest(
+                sip_trunk_id=trunk_id,
+                sip_call_to=to_number,
+                sip_number=config.caller_id,
+                room_name=room_name,
+                participant_identity=f"sip-{to_number}",
+                participant_name="Owner (outbound call)",
+                wait_until_answered=True,
+            )
+        )
+        return {
+            "room": room_name,
+            "trunk_id": trunk_id,
+            "participant_id": participant.participant_id,
+            "sip_call_id": participant.sip_call_id,
+            "to": to_number,
+        }
+    finally:
+        if own_client:
+            await lk.aclose()
+
+
+def place_outbound_call(
+    to_number: str,
+    *,
+    reason: str = "",
+    config: OutboundConfig | None = None,
+    lk: Any = None,
+) -> dict[str, str]:
+    """Synchronous form of :func:`place_outbound_call_async`.
+
+    For the driver that consumes the scheduler's decisions outside the
+    agent session's event loop. Raises the "not provisioned" error,
+    unchanged, when no outbound configuration is present.
+    """
+    config = resolve_outbound_config() if config is None else config
+    if not config.provisioned:
+        raise RuntimeError(NOT_PROVISIONED_MESSAGE)
+    return asyncio.run(
+        place_outbound_call_async(to_number, reason=reason, config=config, lk=lk)
     )
 
 
@@ -330,8 +456,45 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+    outbound = resolve_outbound_config()
+    if outbound.partial:
+        print(
+            "Outbound calling is half-configured: "
+            + ", ".join(outbound.partial)
+            + " set, but MWP_SIP_TRUNK_ADDRESS, MWP_SIP_USERNAME, "
+            "MWP_SIP_PASSWORD and MWP_CALLER_ID are all required together "
+            "(or set MWP_OUTBOUND_TRUNK_ID instead).",
+            file=sys.stderr,
+        )
+        return 2
+    if outbound.needs_trunk_creation and (argv is None or "download-files" not in argv):
+        # Fail loudly at start, not at the first morning call: if the
+        # carrier settings are wrong, the deploy should say so now.
+        from livekit import api
+
+        async def _ensure() -> str:
+            lk = api.LiveKitAPI()
+            try:
+                return await ensure_outbound_trunk(lk, outbound)
+            finally:
+                await lk.aclose()
+
+        try:
+            trunk_id = asyncio.run(_ensure())
+        except Exception as exc:
+            print(
+                f"Outbound trunk setup failed: {exc}. The worker would "
+                "be inbound-only; fix the carrier SIP settings and restart.",
+                file=sys.stderr,
+            )
+            return 2
+        print(f"Outbound calling: trunk ready ({OUTBOUND_TRUNK_NAME}, {trunk_id}).")
+    elif outbound.trunk_id:
+        print("Outbound calling: using the configured MWP_OUTBOUND_TRUNK_ID trunk.")
+    elif argv is None or "download-files" not in argv:
+        print("Outbound calling: not provisioned (inbound only).")
     agents.cli.run_app(
-        agents.WorkerOptions(entrypoint_fnc=_entrypoint, agent_name="my-work-pal")
+        agents.WorkerOptions(entrypoint_fnc=_entrypoint, agent_name=AGENT_NAME)
     )
     return 0
 

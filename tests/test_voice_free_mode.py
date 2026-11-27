@@ -34,6 +34,7 @@ from mwp_voice.voice_config import (  # noqa: E402
     DEFAULT_TTS_VOICE,
     resolve_conversation_mode,
     resolve_llm_model,
+    resolve_outbound_config,
     resolve_tts,
 )
 
@@ -70,6 +71,50 @@ def test_default_voice_is_the_documented_jacqueline():
     # LiveKit's own sonic-3 example voice (American female); see
     # docs/voice-options.md. Guards against an accidental edit.
     assert DEFAULT_TTS_VOICE == "9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"
+
+
+# -- outbound calling: configuration resolution (WP7) ------------------------
+
+_SIP_ENV = {
+    "MWP_SIP_TRUNK_ADDRESS": "sip.signalwire.com",
+    "MWP_SIP_USERNAME": "carrier-user",
+    "MWP_SIP_PASSWORD": "carrier-pass",
+    "MWP_CALLER_ID": "+12402316158",
+}
+
+
+def test_outbound_unset_is_not_provisioned():
+    config = resolve_outbound_config({})
+    assert not config.provisioned
+    assert not config.needs_trunk_creation
+    assert config.partial == ()
+
+
+def test_outbound_existing_trunk_id_provisions_without_creation():
+    config = resolve_outbound_config({"MWP_OUTBOUND_TRUNK_ID": "ST_existing"})
+    assert config.provisioned
+    assert not config.needs_trunk_creation
+
+
+def test_outbound_full_carrier_set_provisions_with_creation():
+    config = resolve_outbound_config(_SIP_ENV)
+    assert config.provisioned
+    assert config.needs_trunk_creation
+    assert config.caller_id == "+12402316158"
+    assert config.partial == ()
+
+
+def test_outbound_partial_carrier_set_is_reported_not_provisioned():
+    env = {"MWP_SIP_TRUNK_ADDRESS": "sip.signalwire.com", "MWP_CALLER_ID": "+12402316158"}
+    config = resolve_outbound_config(env)
+    assert not config.provisioned
+    assert set(config.partial) == {"MWP_SIP_TRUNK_ADDRESS", "MWP_CALLER_ID"}
+
+
+def test_outbound_trunk_id_wins_over_carrier_settings():
+    config = resolve_outbound_config({**_SIP_ENV, "MWP_OUTBOUND_TRUNK_ID": "ST_existing"})
+    assert config.provisioned
+    assert not config.needs_trunk_creation
 
 
 # -- conversation mode + LLM ------------------------------------------------
