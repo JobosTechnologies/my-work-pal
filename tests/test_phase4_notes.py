@@ -165,60 +165,6 @@ class TestWikiCuratorSeq:
 # Note-capture hook
 # ═══════════════════════════════════════════════════════════════
 
-class TestNoteCaptureHook:
-    """A post_llm_call hook must detect note-worthy output and remind ingestion."""
-
-    def test_hook_exists(self):
-        """note_capture_reminder hook must exist in hooks.py."""
-        from hooks import ALL_HOOKS
-        hook_names = []
-        for event, hook_list in ALL_HOOKS.items():
-            for name, _ in hook_list:
-                hook_names.append(name)
-        assert "note_capture_reminder" in hook_names, (
-            f"note_capture_reminder must be registered. Found: {hook_names}"
-        )
-
-    def test_hook_fires_on_meeting_summary(self):
-        """Hook must fire when LLM output contains meeting notes/summary."""
-        from hooks import note_capture_reminder
-        context = {"loaded_skills": ["note-taker", "meeting-prep"]}
-        response = "Here are the meeting notes:\n\n## Decisions\n- Move to Next.js\n\n## Action Items\n- MH to draft proposal"
-        result = note_capture_reminder(response=response, context=context)
-        assert result is not None, "Hook must fire on meeting summary output"
-        assert "note-taker" in result.lower() or "ingest" in result.lower(), (
-            "Hook must remind to ingest via note-taker"
-        )
-
-    def test_hook_fires_on_research_findings(self):
-        """Hook must fire when LLM output contains research findings."""
-        from hooks import note_capture_reminder
-        context = {"loaded_skills": ["note-taker", "deep-research"]}
-        response = "## Research Summary\nThe competitor analysis reveals three key findings [1]. Sources cited below."
-        result = note_capture_reminder(response=response, context=context)
-        assert result is not None, "Hook must fire on research findings"
-
-    def test_hook_does_not_fire_on_simple_chat(self):
-        """Hook must NOT fire on simple conversational responses."""
-        from hooks import note_capture_reminder
-        context = {"loaded_skills": ["note-taker"]}
-        response = "Sure, I can help with that. What would you like to know?"
-        result = note_capture_reminder(response=response, context=context)
-        assert result is None, "Hook must not fire on simple chat"
-
-    def test_hook_does_not_fire_without_note_taker_skill(self):
-        """Hook must NOT fire when note-taker skill is not loaded."""
-        from hooks import note_capture_reminder
-        context = {"loaded_skills": ["daily-briefing"]}
-        response = "## Meeting Notes\nKey decisions were made today."
-        result = note_capture_reminder(response=response, context=context)
-        assert result is None, "Hook must not fire without note-taker skill loaded"
-
-
-# ═══════════════════════════════════════════════════════════════
-# Wiki curator cron prose in SKILL.md
-# ═══════════════════════════════════════════════════════════════
-
 class TestWikiCronProse:
     """SKILL.md must suggest a daily wiki curator cron job."""
 

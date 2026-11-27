@@ -45,33 +45,33 @@ def fake_config():
     }
 
 
-def make_composio_mock():
-    """Mock client that supports all actions (composio:mcp)."""
+def make_full_mock():
+    """Mock client that supports all actions."""
     mock = MagicMock()
-    mock.provider_name = "composio:mcp"
+    mock.provider_name = "m365"
     mock.supports.side_effect = lambda action: True
     mock.drive_upload.return_value = {
-        "success": True, "action": "drive.upload", "provider": "composio:mcp",
+        "success": True, "action": "drive.upload", "provider": "m365",
         "data": {"id": "f1", "webViewLink": "https://drive.google.com/file/d/f1/view"},
         "audited": True,
     }
     mock.gmail_create_draft.return_value = {
-        "success": True, "action": "gmail.draft", "provider": "composio:mcp",
+        "success": True, "action": "gmail.draft", "provider": "m365",
         "data": {"id": "d1"},
         "audited": True,
     }
     mock.calendar_create.return_value = {
-        "success": True, "action": "calendar.create", "provider": "composio:mcp",
+        "success": True, "action": "calendar.create", "provider": "m365",
         "data": {"id": "e1"},
         "audited": True,
     }
     mock.calendar_update.return_value = {
-        "success": True, "action": "calendar.update", "provider": "composio:mcp",
+        "success": True, "action": "calendar.update", "provider": "m365",
         "data": {"id": "e1"},
         "audited": True,
     }
     mock.drive_download.return_value = {
-        "success": True, "action": "drive.download", "provider": "composio:mcp",
+        "success": True, "action": "drive.download", "provider": "m365",
         "data": {"path": "/tmp/out.pdf"},
         "audited": True,
     }
@@ -90,7 +90,7 @@ class TestDryRunNeverCallsProvider:
     """--dry-run must never call provider write methods."""
 
     def test_calendar_create_dry_run(self, fake_config, auto_approve):
-        mock = make_composio_mock()
+        mock = make_full_mock()
         with patch("calendar_actions.load_config", return_value=fake_config), \
              patch("calendar_actions.get_client", return_value=mock):
             import calendar_actions
@@ -99,7 +99,7 @@ class TestDryRunNeverCallsProvider:
         mock.calendar_create.assert_not_called()
 
     def test_calendar_update_dry_run(self, fake_config, auto_approve):
-        mock = make_composio_mock()
+        mock = make_full_mock()
         with patch("calendar_actions.load_config", return_value=fake_config), \
              patch("calendar_actions.get_client", return_value=mock):
             import calendar_actions
@@ -110,7 +110,7 @@ class TestDryRunNeverCallsProvider:
     def test_drive_upload_dry_run(self, fake_config, auto_approve, tmp_path):
         test_file = tmp_path / "test.pdf"
         test_file.write_text("dummy")
-        mock = make_composio_mock()
+        mock = make_full_mock()
         with patch("drive_file.load_config", return_value=fake_config), \
              patch("drive_file.get_client", return_value=mock):
             import drive_file
@@ -119,7 +119,7 @@ class TestDryRunNeverCallsProvider:
         mock.drive_upload.assert_not_called()
 
     def test_drive_download_dry_run(self, fake_config, auto_approve):
-        mock = make_composio_mock()
+        mock = make_full_mock()
         with patch("drive_file.load_config", return_value=fake_config), \
              patch("drive_file.get_client", return_value=mock):
             import drive_file
@@ -128,7 +128,7 @@ class TestDryRunNeverCallsProvider:
         mock.drive_download.assert_not_called()
 
     def test_draft_email_dry_run(self, fake_config, auto_approve):
-        mock = make_composio_mock()
+        mock = make_full_mock()
         with patch("document_actions.load_config", return_value=fake_config), \
              patch("document_actions.get_client", return_value=mock):
             import document_actions
@@ -139,7 +139,7 @@ class TestDryRunNeverCallsProvider:
     def test_handoff_dry_run(self, fake_config, auto_approve, tmp_path):
         test_file = tmp_path / "NDA.docx"
         test_file.write_text("dummy")
-        mock = make_composio_mock()
+        mock = make_full_mock()
         with patch("document_actions.load_config", return_value=fake_config), \
              patch("document_actions.get_client", return_value=mock):
             import document_actions
@@ -154,7 +154,7 @@ class TestDryRunNeverCallsProvider:
     def test_document_upload_dry_run(self, fake_config, auto_approve, tmp_path):
         test_file = tmp_path / "test.pdf"
         test_file.write_text("dummy")
-        mock = make_composio_mock()
+        mock = make_full_mock()
         with patch("document_actions.load_config", return_value=fake_config), \
              patch("document_actions.get_client", return_value=mock):
             import document_actions
@@ -166,11 +166,11 @@ class TestDryRunNeverCallsProvider:
 class TestPreflight:
     """--preflight shows execution plan without side effects."""
 
-    def test_handoff_preflight_composio(self, fake_config, auto_approve, tmp_path):
-        """Preflight under composio shows capabilities OK and exits without writes."""
+    def test_handoff_preflight_full_provider(self, fake_config, auto_approve, tmp_path):
+        """Preflight under the full-capability mock shows capabilities OK and exits without writes."""
         test_file = tmp_path / "NDA.docx"
         test_file.write_text("dummy")
-        mock = make_composio_mock()
+        mock = make_full_mock()
         with patch("document_actions.load_config", return_value=fake_config), \
              patch("document_actions.get_client", return_value=mock):
             import document_actions
@@ -217,7 +217,7 @@ class TestPreflight:
         """Preflight in summary mode prints readable plan."""
         test_file = tmp_path / "NDA.docx"
         test_file.write_text("dummy")
-        mock = make_composio_mock()
+        mock = make_full_mock()
         with patch("document_actions.load_config", return_value=fake_config), \
              patch("document_actions.get_client", return_value=mock):
             import document_actions
@@ -295,7 +295,7 @@ class TestPartialDetection:
         result = {
             "success": True,
             "action": "document.handoff",
-            "provider": "composio:mcp",
+            "provider": "m365",
             "steps": {
                 "drive_upload": {"success": True},
                 "gmail_draft": {"success": True},
@@ -312,7 +312,7 @@ class TestDryRunOutput:
     """Dry-run output contains actionable information."""
 
     def test_calendar_create_dry_run_json(self, fake_config, auto_approve):
-        mock = make_composio_mock()
+        mock = make_full_mock()
         with patch("calendar_actions.load_config", return_value=fake_config), \
              patch("calendar_actions.get_client", return_value=mock):
             import calendar_actions
@@ -329,7 +329,7 @@ class TestDryRunOutput:
     def test_handoff_dry_run_shows_steps(self, fake_config, auto_approve, tmp_path):
         test_file = tmp_path / "NDA.docx"
         test_file.write_text("dummy")
-        mock = make_composio_mock()
+        mock = make_full_mock()
         with patch("document_actions.load_config", return_value=fake_config), \
              patch("document_actions.get_client", return_value=mock):
             import document_actions

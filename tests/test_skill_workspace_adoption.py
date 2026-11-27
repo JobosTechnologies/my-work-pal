@@ -128,7 +128,7 @@ class TestCalendarManager:
     def test_does_not_import_provider_internals(self):
         """Verify calendar_actions imports from workspace_client, not providers."""
         import calendar_actions
-        # The module should import get_workspace_client, not ComposioMCPWorkspaceClient etc.
+        # The module should import get_workspace_client, not a provider client class.
         assert hasattr(calendar_actions, "get_client")
         # get_client should call workspace_client.get_workspace_client
         import inspect

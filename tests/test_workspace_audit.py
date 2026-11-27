@@ -26,12 +26,12 @@ class TestWorkspaceAudit:
     def test_audit_write_creates_file(self, tmp_project):
         from workspace_audit import audit_workspace_action
         config, project = tmp_project
-        audit_workspace_action(config, "composio", "gmail.create_draft",
+        audit_workspace_action(config, "m365", "gmail.create_draft",
                                "GMAIL_CREATE_EMAIL_DRAFT", target="client@test.com")
         log_path = project / ".audit" / "workspace.log"
         assert log_path.exists()
         record = json.loads(log_path.read_text().strip())
-        assert record["provider"] == "composio"
+        assert record["provider"] == "m365"
         assert record["operation"] == "gmail.create_draft"
         assert record["tool"] == "GMAIL_CREATE_EMAIL_DRAFT"
         assert record["target"] == "client@test.com"
@@ -41,8 +41,8 @@ class TestWorkspaceAudit:
     def test_audit_appends_multiple_records(self, tmp_project):
         from workspace_audit import audit_workspace_action
         config, project = tmp_project
-        audit_workspace_action(config, "composio", "calendar.create", "GOOGLECALENDAR_CREATE_EVENT", target="Meeting")
-        audit_workspace_action(config, "composio", "drive.upload", "GOOGLEDRIVE_UPLOAD_FILE", target="/tmp/file.pdf")
+        audit_workspace_action(config, "m365", "calendar.create", "GOOGLECALENDAR_CREATE_EVENT", target="Meeting")
+        audit_workspace_action(config, "m365", "drive.upload", "GOOGLEDRIVE_UPLOAD_FILE", target="/tmp/file.pdf")
         log_path = project / ".audit" / "workspace.log"
         lines = log_path.read_text().strip().split("\n")
         assert len(lines) == 2
@@ -54,7 +54,7 @@ class TestWorkspaceAudit:
     def test_audit_with_failed_status(self, tmp_project):
         from workspace_audit import audit_workspace_action
         config, project = tmp_project
-        audit_workspace_action(config, "composio", "gmail.create_draft",
+        audit_workspace_action(config, "m365", "gmail.create_draft",
                                "GMAIL_CREATE_EMAIL_DRAFT", target="x@test.com", status="failed")
         log_path = project / ".audit" / "workspace.log"
         record = json.loads(log_path.read_text().strip())

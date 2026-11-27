@@ -225,7 +225,7 @@ def test_grant_works_unenrolled_for_backward_compatible_executors(cfg, monkeypat
 
 @pytest.fixture
 def surface(cfg, monkeypatch):
-    import hermes_surface as hs
+    import cos_surface as hs
 
     monkeypatch.setattr(hs, "_load_config", lambda: cfg)
     monkeypatch.setattr(hs, "_owner_name", lambda _cfg: "Alicia Tan", raising=False)
@@ -267,21 +267,12 @@ def test_cos_dismiss_signs_too(cfg, surface):
     assert state_db.get_pending_action(cfg, action["id"])["state"] == "dismissed"
 
 
-def test_register_enrols_the_store(cfg, monkeypatch):
-    import hermes_surface as hs
-    from test_hermes_catalog import _load_plugin_package
+def test_activate_enrols_the_store(cfg, monkeypatch):
+    import cos_surface as hs
 
     monkeypatch.setattr(hs, "_load_config", lambda: cfg)
     monkeypatch.setattr(hs, "_registry_configs", lambda: [cfg], raising=False)
-    plugin = _load_plugin_package("cos_sign_reg")
-
-    class Ctx:
-        def register_skill(self, *_): pass
-        def register_hook(self, *_): pass
-        def register_tool(self, **_): pass
-        def register_command(self, *a, **k): pass
-
-    plugin.register(Ctx())
+    hs.activate()
     assert aps.enforced(cfg) is True
     hs.deactivate_gateway_signer()
 
@@ -315,12 +306,12 @@ def test_doctor_reports_standalone_mode(cfg, monkeypatch):
     assert result.status == "pass" and "not enrolled" in result.detail
 
 
-def test_doctor_warns_when_under_hermes_but_not_enrolled(cfg, monkeypatch):
+def test_doctor_ignores_legacy_hermes_session_env(cfg, monkeypatch):
     import doctor_base
 
     monkeypatch.setenv("HERMES_SESSION_ID", "s1")
     result = doctor_base._check_approval_signing(False, None, Path(cfg.source_path))
-    assert result.status == "warn" and "/cos" in result.detail
+    assert result.status == "pass" and "not enrolled" in result.detail
 
 
 def test_workflow_pointer_names_the_users_approval():

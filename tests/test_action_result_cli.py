@@ -46,7 +46,7 @@ class TestPrintResult:
         result = {
             "success": False, "action": "gmail.draft", "provider": "google_api",
             "target": "client@test.com", "data": {},
-            "error": "gmail.draft is not supported by provider google_api because google_api.py has no draft subcommand. Use provider=composio for this workflow.",
+            "error": "gmail.draft is not supported by provider google_api because google_api.py has no draft subcommand.",
             "audited": False,
         }
         buf = io.StringIO()
@@ -55,12 +55,12 @@ class TestPrintResult:
         out = buf.getvalue()
         assert "❌" in out
         assert "google_api" in out
-        assert "composio" in out
+        assert "google_api or m365" in out
         assert "google_api.py has no draft subcommand" in out
 
     def test_summary_mode_failed(self):
         result = {
-            "success": False, "action": "calendar.create", "provider": "composio:mcp",
+            "success": False, "action": "calendar.create", "provider": "google_api",
             "target": "Sync", "data": {}, "error": "API timeout", "audited": True,
         }
         buf = io.StringIO()
@@ -90,12 +90,12 @@ class TestPrintResult:
         assert "partially completed" in out.lower()
         assert "drive_upload" in out
         assert "gmail_draft" in out
-        assert "composio" in out
+        assert "google_api or m365" in out
 
     def test_summary_mode_handoff_success(self):
         """Handoff success with both steps completed."""
         result = {
-            "success": True, "action": "document.handoff", "provider": "composio:mcp",
+            "success": True, "action": "document.handoff", "provider": "google_api",
             "steps": {
                 "drive_upload": {"success": True, "data": {"id": "f1"}},
                 "gmail_draft": {"success": True, "data": {"id": "d1"}},

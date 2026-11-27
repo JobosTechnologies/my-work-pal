@@ -50,13 +50,6 @@ class TestConnectWorkspace:
         assert "provider" in data
         assert data["provider"] == "google_api"
 
-    def test_composio_prints_next_steps(self):
-        rc, out, err = run_connect("--provider", "composio", "--print-next-steps")
-        assert rc in (0, 1)  # may return 1 if no key set
-        assert "composio" in out.lower() or "Composio" in out
-        # MCP mode shows MCP key, SDK mode shows API key — either is valid
-        assert "COMPOSIO_MCP_KEY" in out or "composio" in out.lower()
-
     def test_google_api_provider_check(self, tmp_config):
         rc, out, err = run_connect("--provider", "google_api", config_path=tmp_config)
         # May pass or fail depending on auth, but should not crash

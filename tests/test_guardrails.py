@@ -106,7 +106,7 @@ class TestActionResult:
         result = ActionResult(
             success=True,
             action="gmail.draft",
-            provider="composio:mcp",
+            provider="m365",
             tool_slug="GMAIL_CREATE_EMAIL_DRAFT",
             target="test@test.com",
             data={"id": "draft_1"},
@@ -115,7 +115,7 @@ class TestActionResult:
         d = result.to_dict()
         assert d["success"] is True
         assert d["action"] == "gmail.draft"
-        assert d["provider"] == "composio:mcp"
+        assert d["provider"] == "m365"
         assert d["tool_slug"] == "GMAIL_CREATE_EMAIL_DRAFT"
         assert d["target"] == "test@test.com"
         assert d["data"]["id"] == "draft_1"
@@ -127,7 +127,7 @@ class TestActionResult:
         result = ActionResult(
             success=False,
             action="calendar.create",
-            provider="composio:mcp",
+            provider="m365",
             error="Connection failed",
             audited=True,
         )
@@ -144,69 +144,3 @@ class TestActionResult:
         assert d["audited"] is False
 
 
-class TestMCPWorkspaceGuardrails:
-    """Integration: MCP workspace methods use guardrails and ActionResult."""
-
-    def test_gmail_draft_returns_action_result(self):
-        from providers.composio_mcp_workspace import ComposioMCPWorkspaceClient
-        from unittest.mock import MagicMock
-
-        config = {
-            "integrations": {
-                "workspace": {
-                    "provider": "composio",
-                    "mode": "mcp",
-                    "user_id": "test",
-                    "mcp": {"endpoint": "https://x", "key_env": "COMPOSIO_MCP_KEY"},
-                }
-            },
-            "paths": {"project_root": "/tmp/test-guards"},
-        }
-        os.environ["COMPOSIO_MCP_KEY"] = "fake"
-        os.environ["CHIEF_OF_STAFF_AUTO_APPROVE"] = "1"
-
-        client = ComposioMCPWorkspaceClient(config)
-        mock_mcp = MagicMock()
-        mock_mcp.call_tool.return_value = {
-            "data": {"results": [{"response": {"successful": True, "data": {"id": "d1"}}}]},
-        }
-        client._mcp_client = mock_mcp
-
-        result = client.gmail_create_draft("test@test.com", "Subject", "Body")
-        assert result["success"] is True
-        assert result["action"] == "gmail.draft"
-        assert result["provider"] == "composio:mcp"
-        assert result["tool_slug"] == "GMAIL_CREATE_EMAIL_DRAFT"
-        assert result["audited"] is True
-
-        os.environ.pop("COMPOSIO_MCP_KEY", None)
-
-    def test_gmail_draft_blocked_by_guardrail(self):
-        from providers.composio_mcp_workspace import ComposioMCPWorkspaceClient
-        from unittest.mock import MagicMock
-
-        config = {
-            "integrations": {
-                "workspace": {
-                    "provider": "composio",
-                    "mode": "mcp",
-                    "user_id": "test",
-                    "mcp": {"endpoint": "https://x", "key_env": "COMPOSIO_MCP_KEY"},
-                }
-            },
-            "paths": {"project_root": "/tmp/test-guards-block"},
-        }
-        os.environ["COMPOSIO_MCP_KEY"] = "fake"
-        os.environ.pop("CHIEF_OF_STAFF_AUTO_APPROVE", None)  # no auto-approve
-
-        client = ComposioMCPWorkspaceClient(config)
-        mock_mcp = MagicMock()
-        client._mcp_client = mock_mcp
-
-        result = client.gmail_create_draft("test@test.com", "Subject", "Body")
-        assert result["success"] is False
-        assert result["error"] == "cancelled by guardrail"
-        # MCP should NOT have been called
-        mock_mcp.call_tool.assert_not_called()
-
-        os.environ.pop("COMPOSIO_MCP_KEY", None)

@@ -83,8 +83,8 @@ class TestReplyHelpers:
         )
 
 
-class TestRealComposioFieldShape:
-    """Composio Gmail returns messageTimestamp + 'Name <email>' sender + threadId.
+class TestRealToolkitFieldShape:
+    """Toolkit Gmail returns messageTimestamp + 'Name <email>' sender + threadId.
 
     Before v0.3.21's fix these fields were not recognised, so the reply index
     stayed empty and nothing was suppressed live even though unit tests passed on

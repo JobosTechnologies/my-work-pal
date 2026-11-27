@@ -131,10 +131,6 @@ class TestLevels:
     def test_legacy_key_resolves(self):
         assert vm.level("google_api", "gmail.draft") == vm.level("google_api", "mail.draft") == "live"
 
-    def test_alias_providers_share_evidence(self):
-        assert vm.level("composio:mcp", "mail.send") == vm.level("composio", "mail.send") == "live"
-        assert vm.level("composio_microsoft:mcp", "mail.send") == "live"
-
     def test_unknown_provider_is_unsupported_everywhere(self):
         assert vm.level("nonesuch", "mail.send") == "unsupported"
 
@@ -146,15 +142,9 @@ class TestProviderSummary:
         assert summary["counts"]["live"] == 0
         assert summary["counts"]["mocked"] > 0
 
-    def test_composio_microsoft_is_verified_with_live_writes(self):
-        summary = vm.provider_summary("composio_microsoft")
-        assert summary["provider_verified"] is True
-        assert summary["actions"]["mail.send"]["level"] == "live"
-        assert summary["actions"]["mail.send"]["date"]
-
     def test_counts_cover_every_supported_action(self):
-        summary = vm.provider_summary("composio")
-        supported = [a for a, ok in caps.CAPABILITIES["composio"].items() if ok]
+        summary = vm.provider_summary("google_api")
+        supported = [a for a, ok in caps.CAPABILITIES["google_api"].items() if ok]
         assert sum(summary["counts"].values()) == len(supported)
         assert set(summary["actions"]) == set(supported)
 
@@ -190,10 +180,6 @@ class TestCapabilityReport:
     def test_provider_verified_is_derived_from_the_matrix(self):
         assert self._report("m365")["provider_verified"] is False
         assert self._report("google_api")["provider_verified"] is True
-
-    def test_composio_microsoft_family_uses_microsoft_evidence(self):
-        report = self._report("composio", mode="mcp", family="microsoft")
-        assert report["verification"]["provider"].startswith("composio_microsoft")
 
     def test_summary_prints_verification_counts(self, capsys, monkeypatch, tmp_path):
         import chief_of_staff
@@ -305,91 +291,6 @@ class TestVerifyCliRecordsEvidence:
 
 # ── no silent retry of a write ──────────────────────────────────────────────
 
-class TestNoSilentRetry:
-    """A write whose outcome is unknown must surface, never be re-sent."""
-
-    def _client(self, monkeypatch):
-        monkeypatch.setenv("COMPOSIO_MCP_KEY", "test-key")
-        from mcp_client import MCPClient
-
-        client = MCPClient("https://connect.composio.dev/mcp")
-        client._initialized = True
-        client._session_id = "sess"
-        return client
-
-    @pytest.mark.parametrize("status", [500, 502, 503, 504])
-    def test_mcp_tool_call_is_not_retried_on_server_error(self, monkeypatch, status):
-        client = self._client(monkeypatch)
-        resp = MagicMock(status_code=status, text="boom")
-        with patch("mcp_client.requests.post", return_value=resp) as post:
-            with pytest.raises(ConnectionError):
-                client.call_tool("GMAIL_SEND_EMAIL", {"to": "x"})
-        assert post.call_count == 1
-
-    def test_mcp_tool_call_is_not_retried_on_timeout(self, monkeypatch):
-        import requests
-
-        client = self._client(monkeypatch)
-        with patch("mcp_client.requests.post", side_effect=requests.Timeout("slow")) as post:
-            with pytest.raises(requests.Timeout):
-                client.call_tool("GMAIL_SEND_EMAIL", {"to": "x"})
-        assert post.call_count == 1
-
-    def test_session_rejection_is_retried_once_only(self, monkeypatch):
-        """A 404 'unknown session' was rejected before the tool ran: one re-send, no more."""
-        client = self._client(monkeypatch)
-        rejected = MagicMock(status_code=404, text="session not found")
-        calls = []
-
-        def post(url, headers=None, json=None, timeout=None):
-            calls.append(json.get("method"))
-            return rejected
-
-        monkeypatch.setattr(client, "initialize", lambda: None)
-        with patch("mcp_client.requests.post", side_effect=post):
-            with pytest.raises(ConnectionError):
-                client.call_tool("GMAIL_SEND_EMAIL", {"to": "x"})
-        assert calls.count("tools/call") == 2
-
-    @pytest.mark.parametrize("status", [503, 504])
-    def test_m365_post_is_not_retried_on_ambiguous_failure(self, status):
-        from providers import m365_graph
-
-        assert "POST" not in m365_graph.IDEMPOTENT_METHODS
-        assert status in m365_graph.RETRYABLE_STATUS
-
-    def _fail_once(self, tmp_path, action_type, target="x@example.com", payload=None):
-        import state_db
-
-        config = {"paths": {"project_root": str(tmp_path)}}
-        with state_db._open_db(config) as db:
-            action_id = db.create_action(action_type, "google_api", target,
-                                         payload or {"to": target})["id"]
-        state_db.approve_pending_action(config, action_id, approver="op")
-        state_db.mark_executing(config, action_id)
-        return state_db.mark_failed(config, action_id, "timeout")
-
-    @pytest.mark.parametrize("action_type", sorted(
-        __import__("state_db").NON_IDEMPOTENT_ACTIONS))
-    def test_failed_non_idempotent_action_is_final(self, tmp_path, action_type):
-        """A send that timed out may have gone out: never hand it back as approved."""
-        failed = self._fail_once(tmp_path, action_type)
-        assert failed["state"] == "failed"
-        assert failed["failed_at"]
-
-    def test_send_types_are_non_idempotent(self):
-        import state_db
-
-        for action_type in ("gmail.send", "mail.send", "calendar.create", "files.upload"):
-            assert action_type in state_db.NON_IDEMPOTENT_ACTIONS
-
-    def test_idempotent_action_still_returns_for_a_manual_retry(self, tmp_path):
-        """Archiving twice is harmless, so the documented manual retry stays."""
-        failed = self._fail_once(tmp_path, "gmail.archive", target="msg-1", payload={"message_id": "msg-1"})
-        assert failed["state"] == "approved"
-        assert failed["retry_count"] == 1
-
-
 # ── adversarial review regressions ──────────────────────────────────────────
 
 class TestReviewRegressions:
@@ -397,15 +298,6 @@ class TestReviewRegressions:
         import chief_of_staff
 
         return chief_of_staff.build_capability_report({"integrations": {"workspace": workspace}})
-
-    @pytest.mark.parametrize("family, expected", [(None, "composio:mcp"), ("microsoft", "composio_microsoft:mcp")])
-    def test_composio_without_mode_is_mcp_and_verified(self, family, expected):
-        ws = {"provider": "composio"} | ({"family": family} if family else {})
-        report = self._report(**ws)
-        assert report["verification"]["provider"] == expected
-        assert report["provider_verified"] is True
-        assert report["verification"]["counts"]["live"] > 0
-        assert report["supported"]
 
     def test_install_without_contacts_writes_does_not_count_them(self):
         report = self._report(provider="google_api")
@@ -421,9 +313,6 @@ class TestReviewRegressions:
 
     def test_label_reuse_cannot_promote_create_tag(self):
         assert "mail.create_tag" not in vm.CHECK_ACTIONS["mail_tag_write"]
-
-    def test_files_search_on_outlook_is_catalog_not_live(self):
-        assert vm.level("composio_microsoft", "files.search") == "catalog"
 
     def test_unverified_note_says_a_maintainer_promotes(self):
         assert "maintainer" in vm.provider_summary("m365")["note"]

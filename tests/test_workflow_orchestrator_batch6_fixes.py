@@ -482,9 +482,11 @@ def test_fire_verb_wired_and_wakeup_delivers(temp_project, monkeypatch):
     binding = workflow_cron.install_workflow_cron(
         "invoice-chase", workflow, config, now=FROZEN, session_id="sess-1"
     )
-    prompt_cmds = [c for c in captured if "create" in c]
-    assert prompt_cmds
-    assert any("workflows fire --schedule-id" in " ".join(c) for c in prompt_cmds)
+    from cron_store import load_jobs
+
+    jobs = {job.get("id"): job for job in load_jobs()}
+    assert binding["schedule_id"] in jobs
+    assert "workflows fire --schedule-id" in str(jobs[binding["schedule_id"]].get("prompt"))
     t0 = FROZEN.replace(second=0, microsecond=0)
     first = workflow_cron.fire_occurrence("invoice-chase", config, now=t0)
     assert first is not None
@@ -700,28 +702,6 @@ def test_build_parser_survives_poisoned_workflow_install():
             sys.modules.pop("workflow_install", None)
 
 
-def test_hooks_import_survives_poisoned_workflow_hooks():
-    """K1: poisoning workflow_hooks still imports hooks; ALL_HOOKS keeps the original 10."""
-    saved_wh = sys.modules.get("workflow_hooks")
-    sys.modules["workflow_hooks"] = None
-    sys.modules.pop("hooks", None)
-    try:
-        hooks_mod = importlib.import_module("hooks")
-        total = sum(len(items) for items in hooks_mod.ALL_HOOKS.values())
-        assert total == 10
-        names = [name for items in hooks_mod.ALL_HOOKS.values() for name, _cb in items]
-        assert "company_context_primer" in names
-        assert "workflow_pointer_strip" not in names
-        assert "workflow_advancement" not in names
-    finally:
-        if saved_wh is not None:
-            sys.modules["workflow_hooks"] = saved_wh
-        else:
-            sys.modules.pop("workflow_hooks", None)
-        sys.modules.pop("hooks", None)
-        importlib.import_module("hooks")
-
-
 def test_doctor_run_checks_survives_poisoned_workflow_cron(temp_project):
     """D1: poison workflow_cron → run_checks completes with 4 warns, no raise."""
     from doctor_base import run_checks
@@ -757,13 +737,17 @@ def test_cli_error_json_and_abort_catches_exception(temp_project):
     assert payload.get("error")
 
 
-def test_failed_hermes_create_does_not_write_binding(temp_project, monkeypatch):
-    """C3: failed hermes cron create raises and does not write the binding."""
+def test_failed_cron_register_does_not_write_binding(temp_project, monkeypatch):
+    """C3: a failed cron-store registration raises and does not write the binding."""
     import workflow_cron
 
     config, _project, _config_path = temp_project
-    _fake_hermes_ok(monkeypatch, returncode=1, stderr="boom from hermes")
-    with pytest.raises(workflow_cron.WorkflowRunError, match="hermes"):
+
+    def _boom(job):
+        raise OSError("cron store unavailable")
+
+    monkeypatch.setattr("cron_store.upsert_job", _boom)
+    with pytest.raises(workflow_cron.WorkflowRunError, match="cron register failed"):
         workflow_cron.install_workflow_cron(
             "invoice-chase",
             _validated(),
@@ -1449,24 +1433,3 @@ def test_build_parser_surfaces_workflows_registration_failure(monkeypatch):
     assert "workflows" not in root.choices
 
 
-def test_hooks_poisoned_workflow_hooks_records_diagnostic():
-    """F5: workflow_hooks import failure is fail-soft and records a diagnostic."""
-    saved_wh = sys.modules.get("workflow_hooks")
-    sys.modules["workflow_hooks"] = None
-    sys.modules.pop("hooks", None)
-    try:
-        buf = io.StringIO()
-        err = io.StringIO()
-        with redirect_stdout(buf), redirect_stderr(err):
-            hooks_mod = importlib.import_module("hooks")
-        total = sum(len(items) for items in hooks_mod.ALL_HOOKS.values())
-        assert total == 10
-        diagnostic = (err.getvalue() + buf.getvalue()).lower()
-        assert "workflow_hooks" in diagnostic
-    finally:
-        if saved_wh is not None:
-            sys.modules["workflow_hooks"] = saved_wh
-        else:
-            sys.modules.pop("workflow_hooks", None)
-        sys.modules.pop("hooks", None)
-        importlib.import_module("hooks")

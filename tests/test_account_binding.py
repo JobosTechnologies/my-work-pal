@@ -306,15 +306,15 @@ def test_m365_mailbox_change_is_drift(tmp_path):                           # fin
     assert state_db.mark_executing(drifted, action["id"]) is None
 
 
-def test_composio_routing_change_is_drift(tmp_path):                       # finding 2
+def test_m365_routing_change_is_drift(tmp_path):                           # finding 2
     base = _config(tmp_path)
     path = Path(base.source_path)
-    path.write_text(path.read_text() + "\nintegrations:\n  workspace:\n    provider: composio\n"
-                    "    user_id: acme-user\n    account_aliases:\n      gmail: acme-gmail\n")
+    path.write_text(path.read_text() + "\nintegrations:\n  workspace:\n    provider: m365\n"
+                    "m365:\n  auth: client_credentials\n  user_principal: ops@acme.example\n")
     cfg = config_loader.load_config(path)
-    action = state_db.create_pending_action(cfg, "gmail.send", "composio", "t", {"a": 1})
+    action = state_db.create_pending_action(cfg, "mail.send", "m365", "t", {"a": 1})
     state_db.approve_pending_action(cfg, action["id"], approver="op", reason="ok")
-    drifted = _reload(cfg, lambda t: t.replace("acme-gmail", "beta-gmail"))
+    drifted = _reload(cfg, lambda t: t.replace("ops@acme.example", "ceo@beta.example"))
     assert state_db.mark_executing(drifted, action["id"]) is None
 
 

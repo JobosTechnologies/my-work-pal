@@ -260,7 +260,7 @@ class TestEmailNotification:
         """If provider doesn't support gmail.send, email delivery fails gracefully."""
         config, project = temp_with_suggestions
         mock_client = MagicMock()
-        mock_client.provider_name = "composio:mcp"
+        mock_client.provider_name = "m365"
         mock_client.supports.side_effect = lambda a: a != "gmail.send"
         with patch("suggest_actions.load_config", return_value=config), \
              patch("workspace_client.get_workspace_client", return_value=mock_client):

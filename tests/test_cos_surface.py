@@ -1,4 +1,4 @@
-"""Hermes-native surface: read-only tools for the agent, /cos for the human.
+"""Agent surface: read-only tools for the agent, /cos for the human.
 
 The split is the plugin's invariant made structural: the model may observe and
 propose; only a person may approve. So:
@@ -27,32 +27,11 @@ SCRIPTS = PLUGIN_ROOT / "shared" / "scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
-import hermes_surface as hs  # noqa: E402
-from test_hermes_catalog import _load_plugin_package  # noqa: E402
+import cos_surface as hs  # noqa: E402
 
 MANIFEST = yaml.safe_load((PLUGIN_ROOT / "plugin.yaml").read_text(encoding="utf-8"))
 MUTATING = ("approve", "dismiss", "execute", "claim", "record-execution", "propose", "reserve", "record",
             "push", "install", "--fix")
-
-
-class Ctx:
-    def __init__(self):
-        self.tools, self.commands = {}, {}
-
-    def register_skill(self, *_):
-        pass
-
-    def register_hook(self, *_):
-        pass
-
-    def register_session_env(self, *_):
-        pass
-
-    def register_tool(self, *, name, toolset, schema, handler, **_):
-        self.tools[name] = (toolset, schema, handler)
-
-    def register_command(self, name, handler, description="", args_hint=""):
-        self.commands[name] = (handler, description, args_hint)
 
 
 @pytest.fixture
@@ -87,36 +66,18 @@ def owner_config(monkeypatch):
     return cfg
 
 
-# ------------------------------------------------------------- registration
+# ------------------------------------------------------------- surface shape
 
 
-def test_register_exposes_the_declared_tools_and_the_cos_command():
-    plugin = _load_plugin_package("cos_surface_reg")
-    ctx = Ctx()
-    plugin.register(ctx)
-    assert sorted(ctx.tools) == sorted(MANIFEST["provides_tools"])
-    assert {t[0] for t in ctx.tools.values()} == {hs.TOOLSET}
-    assert "cos" in ctx.commands and ctx.commands["cos"][1]
+def test_surface_tools_match_the_manifest():
+    assert sorted(hs.TOOL_NAMES) == sorted(MANIFEST["provides_tools"])
+    assert hs.TOOLSET == "chief-of-staff"
 
 
-def test_register_tolerates_a_hermes_without_tools_or_commands():
-    plugin = _load_plugin_package("cos_surface_old")
-
-    class Bare:
-        def register_skill(self, *_):
-            pass
-
-        def register_hook(self, *_):
-            pass
-
-    plugin.register(Bare())
-
-
-def test_schemas_are_well_formed():
-    for spec in hs.TOOLS:
-        schema = spec.schema
-        assert schema["name"] == spec.name and len(schema["description"]) > 40
-        assert schema["parameters"]["type"] == "object"
+def test_activate_without_configs_is_a_no_op(monkeypatch):
+    monkeypatch.setattr(hs, "_registry_configs", lambda: [])
+    hs.activate()
+    hs.deactivate_gateway_signer()
 
 
 # ------------------------------------------------------------ tools: safety
@@ -158,12 +119,8 @@ def test_tool_never_raises(monkeypatch):
     assert out["ok"] is False and "disk gone" in out["error"]
 
 
-def test_run_script_hands_hermes_secrets_to_the_child(monkeypatch):
-    agent = types.ModuleType("agent")
-    scope = types.ModuleType("agent.secret_scope")
-    scope.get_secret = lambda name, default=None: "k-123" if name == "COMPOSIO_MCP_KEY" else default
-    monkeypatch.setitem(sys.modules, "agent", agent)
-    monkeypatch.setitem(sys.modules, "agent.secret_scope", scope)
+def test_run_script_hands_declared_secrets_to_the_child(monkeypatch):
+    monkeypatch.setenv("M365_CLIENT_SECRET", "s-123")
     seen = {}
 
     def fake_subprocess_run(cmd, **kw):
@@ -172,7 +129,7 @@ def test_run_script_hands_hermes_secrets_to_the_child(monkeypatch):
 
     monkeypatch.setattr(hs.subprocess, "run", fake_subprocess_run)
     hs.run_script("spend.py", ["status"])
-    assert seen["env"]["COMPOSIO_MCP_KEY"] == "k-123"
+    assert seen["env"]["M365_CLIENT_SECRET"] == "s-123"
     assert seen["cmd"][0] == sys.executable and seen["cmd"][1].endswith("shared/scripts/spend.py")
     assert Path(seen["cwd"]) == PLUGIN_ROOT
 
@@ -268,13 +225,11 @@ def test_command_names_follow_the_assistant_name(name, expected):
     assert hs.command_names({"assistant": {"name": name}}) == expected
 
 
-def test_register_adds_the_named_command_alongside_cos(monkeypatch):
-    plugin = _load_plugin_package("cos_surface_named")
+def test_named_command_handlers_exist_for_each_command_name(monkeypatch):
     monkeypatch.setattr(hs, "_load_config", lambda: {"assistant": {"name": "Ada"}})
-    ctx = Ctx()
-    plugin.register(ctx)
-    assert {"ada", "cos"} <= set(ctx.commands)
-    assert "/ada" in ctx.commands["ada"][1]
+    assert hs.command_names(hs._load_config()) == ["ada", "cos"]
+    for name in ("ada", "cos"):
+        assert callable(hs.make_command_handler(name))
 
 
 def test_usage_speaks_the_assistant_name(calls):
@@ -308,12 +263,8 @@ def test_cos_keeps_working_after_a_rename(calls, monkeypatch):
     assert calls and calls[0][0] == "review_queue.py"
 
 
-def test_the_new_name_is_registered_on_the_next_load(monkeypatch):
-    plugin = _load_plugin_package("cos_surface_rename")
-    monkeypatch.setattr(hs, "_load_config", lambda: {"assistant": {"name": "Bea"}})
-    ctx = Ctx()
-    plugin.register(ctx)
-    assert {"bea", "cos"} == set(ctx.commands)
+def test_command_names_follow_a_rename():
+    assert hs.command_names({"assistant": {"name": "Bea"}}) == ["bea", "cos"]
 
 
 def test_large_json_output_is_parsed_whole(monkeypatch):

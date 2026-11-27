@@ -45,7 +45,7 @@ import doctor  # noqa: E402
 # load_dotenv_file (which sets os.environ directly, not through monkeypatch).
 _MANAGED_ENV_KEYS = [
     "CHIEF_OF_STAFF_CONFIG",
-    "COMPOSIO_MCP_KEY",
+    "EXAMPLE_MCP_KEY",
     "M365_CLIENT_SECRET",
     "DOCUSEAL_TOKEN",
     "COS_TEST_FOO",
@@ -204,7 +204,7 @@ class TestConnectWorkspaceConfigDiscovery:
         captured = {}
 
         # run_verification gained include_calendar_writes (opt-in calendar
-        # create→update→delete) in the Composio MS write-verification work; the
+        # create→update→delete) in the Microsoft write-verification work; the
         # CLI now always passes it, so the mock must accept it.
         def fake_run(config, include_writes=False, include_calendar_writes=False):
             captured["provider"] = (
@@ -228,7 +228,7 @@ class TestConnectWorkspaceConfigDiscovery:
 class TestDotenvLoader:
     def test_parses_quotes_comments_blank_malformed(self, tmp_path, monkeypatch):
         for k in ("COS_TEST_FOO", "COS_TEST_QUOTED", "COS_TEST_SQUOTED",
-                  "COS_TEST_EMPTY", "COS_TEST_SPACED", "COMPOSIO_MCP_KEY",
+                  "COS_TEST_EMPTY", "COS_TEST_SPACED", "EXAMPLE_MCP_KEY",
                   "COS_TEST_INLINE", "COS_TEST_HASH", "COS_TEST_QUOTED_HASH"):
             monkeypatch.delenv(k, raising=False)
         env_file = tmp_path / ".env"
@@ -243,7 +243,7 @@ class TestDotenvLoader:
             "COS_TEST_INLINE=value # stripped comment\n"
             "COS_TEST_HASH=value#kept\n"
             'COS_TEST_QUOTED_HASH="value # kept" # stripped comment\n'
-            "  COMPOSIO_MCP_KEY = spaced_around_equals  \n"
+            "  EXAMPLE_MCP_KEY = spaced_around_equals  \n"
             "this line has no equals sign\n"
             "=novalueforkey\n"
             "COS TEST SPACED=has space in key\n"
@@ -259,7 +259,7 @@ class TestDotenvLoader:
         assert os.environ["COS_TEST_HASH"] == "value#kept"
         assert os.environ["COS_TEST_QUOTED_HASH"] == "value # kept"
         # whitespace around key and value/equals is stripped
-        assert os.environ["COMPOSIO_MCP_KEY"] == "spaced_around_equals"
+        assert os.environ["EXAMPLE_MCP_KEY"] == "spaced_around_equals"
         # malformed lines ignored: no-equals, empty-key, whitespace-in-key
         assert "COS TEST SPACED" not in os.environ
         assert applied["COS_TEST_FOO"] == "plain_value"
@@ -325,14 +325,14 @@ class TestDotenvLoader:
 
     def test_load_config_triggers_dotenv(self, tmp_path, monkeypatch):
         """config_loader.load_config auto-loads the plugin-root .env."""
-        monkeypatch.delenv("COMPOSIO_MCP_KEY", raising=False)
+        monkeypatch.delenv("EXAMPLE_MCP_KEY", raising=False)
         root = tmp_path / "plugin"
         (root / "shared" / "config").mkdir(parents=True)
-        (root / ".env").write_text("COMPOSIO_MCP_KEY=key_from_env_file\n")
+        (root / ".env").write_text("EXAMPLE_MCP_KEY=key_from_env_file\n")
         monkeypatch.setattr(config_loader, "_PLUGIN_ROOT", root)
         # load_config on a missing file still runs discovery (and thus .env).
         config_loader.load_config(str(tmp_path / "missing.yaml"))
-        assert os.environ["COMPOSIO_MCP_KEY"] == "key_from_env_file"
+        assert os.environ["EXAMPLE_MCP_KEY"] == "key_from_env_file"
 
 
 # ═══════════════════ Finding 2: entrypoint coverage (doctor) ═════════════════

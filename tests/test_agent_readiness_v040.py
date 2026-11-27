@@ -214,7 +214,7 @@ class TestHostedSessionGuardrails:
     def test_local_session_is_not_hosted(self, local_session):
         assert workspace_guardrails.in_hosted_session() is False
 
-    @pytest.mark.parametrize("provider", ["google_api", "m365", "composio", "composio_microsoft"])
+    @pytest.mark.parametrize("provider", ["google_api", "m365"])
     def test_credential_providers_refused_in_hosted_session(self, provider, cloud_session):
         refusal = workspace_guardrails.hosted_session_refusal(provider)
         assert refusal is not None
@@ -224,7 +224,7 @@ class TestHostedSessionGuardrails:
         """The agent provider holds no credentials, so it is the safe one."""
         assert workspace_guardrails.hosted_session_refusal("agent") is None
 
-    @pytest.mark.parametrize("provider", ["google_api", "m365", "composio", "agent"])
+    @pytest.mark.parametrize("provider", ["google_api", "m365", "agent"])
     def test_nothing_is_refused_locally(self, provider, local_session):
         assert workspace_guardrails.hosted_session_refusal(provider) is None
 

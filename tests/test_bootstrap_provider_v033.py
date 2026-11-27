@@ -3,7 +3,7 @@
 
 Proves ``bootstrap.py`` can write the ``integrations.workspace.provider`` block
 plus the provider's NON-SECRET config section for google_api (unchanged),
-composio, and m365 — while keeping the default (no-flag) invocation byte
+and m365 — while keeping the default (no-flag) invocation byte
 compatible with the pre-change output.
 
 All tests point ``bootstrap.CONFIG_DIR`` at a tmp dir (a copy of the real
@@ -43,7 +43,7 @@ def _make_args(**overrides):
         business_type=None, config=None, json=False,
         workspace_provider=None, m365_auth="client_credentials",
         tenant_id=None, client_id=None, user_principal=None,
-        m365_secret_env="M365_CLIENT_SECRET", composio_user_id=None,
+        m365_secret_env="M365_CLIENT_SECRET",
         esign_url=None, allow_insecure_esign_url=False,
     )
     base.update(overrides)
@@ -120,26 +120,6 @@ class TestProviderOverlay:
         assert "user_principal" not in overlay["m365"]
         assert req == []
         assert any("interactive" in n for n in notices)
-
-    def test_composio_full(self):
-        overlay, req, notices, nxt = bootstrap._provider_overlay(_make_args(
-            workspace_provider="composio", composio_user_id="acme-alicia"))
-        ws = overlay["integrations"]["workspace"]
-        assert ws["provider"] == "composio"
-        assert ws["user_id"] == "acme-alicia"
-        assert ws["mcp"] == {
-            "endpoint": "https://connect.composio.dev/mcp",
-            "key_env": "COMPOSIO_MCP_KEY",
-        }
-        assert req == ["COMPOSIO_MCP_KEY"]
-        assert any("composio" in c and "--verify" in c for c in nxt)
-
-    def test_composio_placeholder_user_id(self):
-        overlay, req, notices, nxt = bootstrap._provider_overlay(_make_args(
-            workspace_provider="composio"))
-        assert overlay["integrations"]["workspace"]["user_id"] == "<composio-user-id>"
-        assert any("user_id" in n for n in notices)
-
 
 # ── Validation ──────────────────────────────────────────────────────────
 
@@ -228,24 +208,6 @@ class TestM365Written:
         assert data["m365"]["client_secret_env"] == "M365_CLIENT_SECRET"
 
 
-# ── Composio write-through ──────────────────────────────────────────────
-
-class TestComposioWritten:
-    def test_composio_block_written(self, tmp_config_dir, tmp_path):
-        args = _make_args(workspace_provider="composio",
-                          composio_user_id="acme-alicia",
-                          project_root=str(tmp_path / "proj"))
-        overlay, *_ = bootstrap._provider_overlay(args)
-        preset = bootstrap._merge_preset(args)
-        bootstrap._deep_update(preset, overlay)
-        data = _load(bootstrap._write_config(preset))
-        ws = data["integrations"]["workspace"]
-        assert ws["provider"] == "composio"
-        assert ws["user_id"] == "acme-alicia"
-        assert ws["mcp"]["endpoint"] == "https://connect.composio.dev/mcp"
-        assert ws["mcp"]["key_env"] == "COMPOSIO_MCP_KEY"
-
-
 # ── End-to-end _main: env-var message + next commands printed ───────────
 
 class TestMainMessaging:
@@ -261,17 +223,6 @@ class TestMainMessaging:
         assert "Set M365_CLIENT_SECRET before running doctor/verify." in out
         assert "connect_workspace.py --provider m365 --verify" in out
         assert "doctor.py" in out
-
-    def test_composio_main_prints_env_var(self, tmp_config_dir, tmp_path, capsys):
-        rc = bootstrap._main([
-            "--workspace-provider", "composio",
-            "--composio-user-id", "acme-alicia",
-            "--project-root", str(tmp_path / "proj"),
-        ])
-        assert rc == 0
-        out = capsys.readouterr().out
-        assert "Set COMPOSIO_MCP_KEY before running doctor/verify." in out
-        assert "connect_workspace.py --provider composio --verify" in out
 
     def test_m365_placeholder_main_says_so(self, tmp_config_dir, tmp_path, capsys):
         rc = bootstrap._main([

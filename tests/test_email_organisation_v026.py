@@ -79,7 +79,7 @@ def mock_client():
 # ─── Label Parsing ────────────────────────────────────────────
 
 SAMPLE_OUTLOOK_CATEGORIES = [
-    # Composio MS / m365 shape: id == displayName; type often omitted.
+    # Outlook / m365 shape: id == displayName; type often omitted.
     {"id": "CoS-Verify", "name": "CoS-Verify", "displayName": "CoS-Verify", "type": "user"},
     {"id": "Follow Up", "displayName": "Follow Up"},  # name omitted — use displayName
     {"id": "Finance/Invoices", "name": "Finance/Invoices", "type": "user"},
@@ -367,10 +367,10 @@ class TestEmailOrgCLI:
         assert len(data["user_labels"]) == 9
         assert data["tag_surface"] == "gmail_labels"
 
-    def test_inspect_labels_outlook_composio_ms(self, temp_project):
+    def test_inspect_labels_outlook_m365(self, temp_project):
         config, project = temp_project
         mock = MagicMock()
-        mock.provider_name = "composio_microsoft:mcp"
+        mock.provider_name = "m365"
         mock.family = "microsoft"
         mock.supports.side_effect = lambda a: True
         mock.mail_list_tags.return_value = SAMPLE_OUTLOOK_CATEGORIES
@@ -394,7 +394,7 @@ class TestEmailOrgCLI:
             assert rc2 == 0
             data = json.loads(buf2.getvalue())
             assert data["tag_surface"] == "outlook_categories"
-            assert data["provider"] == "composio_microsoft:mcp"
+            assert data["provider"] == "m365"
             assert len(data["user_labels"]) == 3
 
     def test_propose_policy_summary(self, temp_project, mock_client):
@@ -459,7 +459,7 @@ class TestEmailOrgCLI:
     def test_inspect_unsupported_provider(self, temp_project):
         config, project = temp_project
         mock_client = MagicMock()
-        mock_client.provider_name = "composio:mcp"
+        mock_client.provider_name = "m365"
         mock_client.supports.side_effect = lambda a: a != "gmail.labels.list"
         with patch("email_organisation.load_config", return_value=config), \
              patch("email_organisation.get_client", return_value=mock_client):

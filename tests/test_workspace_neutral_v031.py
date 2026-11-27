@@ -86,7 +86,7 @@ class TestRegistryFactory:
             get_workspace_client({"integrations": {"workspace": {"provider": "nope"}}})
         # Message lists registered providers.
         assert "google_api" in str(exc.value)
-        assert "composio" in str(exc.value)
+        assert "m365" in str(exc.value)
 
     def test_registered_but_missing_module_raises_importerror(self):
         """A provider registered to a non-existent module raises ImportError.
@@ -249,9 +249,9 @@ class TestCapabilityLegacyAliases:
         from workspace_capabilities import supports
         assert supports("google_api", "gmail.labels.list") is True
         assert supports("google_api", "mail.list_tags") is True
-        # Composio Google Drive trash execution-verified 2026-07-16 → True.
-        assert supports("composio:mcp", "drive.trash") is True
-        assert supports("composio:mcp", "files.trash") is True
+        # Legacy and neutral spellings resolve to the same value.
+        assert supports("google_api", "drive.trash") is True
+        assert supports("google_api", "files.trash") is True
 
     def test_client_supports_legacy_and_neutral(self):
         from providers.google_workspace import GoogleWorkspaceClient

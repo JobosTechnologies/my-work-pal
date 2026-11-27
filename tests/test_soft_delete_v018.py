@@ -9,7 +9,7 @@ Verifies:
 - Reason is required for delete/archive actions
 - Dry-run/preflight for delete actions
 - Restore/undo metadata stored in pending action
-- Capability checks block composio for soft-delete actions
+- Capability checks block providers without soft-delete support
 """
 
 import sys
@@ -84,9 +84,9 @@ def google_mock():
 
 
 @pytest.fixture
-def composio_mock():
+def agent_mock():
     mock = MagicMock()
-    mock.provider_name = "composio:mcp"
+    mock.provider_name = "agent"
     mock.supports.side_effect = lambda action: action not in (
         "gmail.send", "gmail.archive", "gmail.trash", "drive.trash", "calendar.cancel"
     )
@@ -266,10 +266,10 @@ class TestSoftDeleteActions:
                     "--target", "msg123",
                 ])
 
-    def test_prepare_blocked_for_composio(self, temp_project, composio_mock, auto_approve):
+    def test_prepare_blocked_for_agent(self, temp_project, agent_mock, auto_approve):
         config, project = temp_project
         with patch("delete_actions.load_config", return_value=config), \
-             patch("delete_actions.get_client", return_value=composio_mock):
+             patch("delete_actions.get_client", return_value=agent_mock):
             import delete_actions
             buf = io.StringIO()
             with redirect_stdout(buf):
@@ -454,12 +454,3 @@ class TestSoftDeleteCapabilities:
         assert supports("google_api", "drive.trash") is True
         assert supports("google_api", "calendar.cancel") is True
 
-    def test_composio_google_soft_delete_surface(self):
-        # v0.3.14: Gmail archive/trash execution-verified. v0.3.15: Drive trash
-        # (GOOGLEDRIVE_TRASH_FILE) execution-verified 2026-07-16 (create-from-text
-        # → trash → confirmed in Trash). calendar.cancel via UPDATE_EVENT (soft).
-        from workspace_capabilities import supports
-        assert supports("composio:mcp", "gmail.archive") is True
-        assert supports("composio:mcp", "gmail.trash") is True
-        assert supports("composio:mcp", "drive.trash") is True
-        assert supports("composio:mcp", "calendar.cancel") is True

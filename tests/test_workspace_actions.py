@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Tests for workspace write actions — Gmail draft, Calendar create/update, Drive upload/download.
 
-MCP action tests are in test_composio_mcp_workspace.py.
+Provider action tests live alongside this file.
 This file covers:
-- Provider capability reporting (composio:mcp, google_api)
+- Provider capability reporting (google_api, m365)
 - Google provider write methods (mocked subprocess)
 - Cross-provider capability checks
 """
@@ -23,43 +23,7 @@ if str(SHARED_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SHARED_SCRIPTS))
 
 
-@pytest.fixture
-def composio_config():
-    return {
-        "integrations": {
-            "workspace": {
-                "provider": "composio",
-                "mode": "mcp",
-                "user_id": "test-user",
-                "toolkits": ["gmail", "googlecalendar", "googledrive"],
-                "mcp": {"endpoint": "https://connect.composio.dev/mcp", "key_env": "COMPOSIO_MCP_KEY"},
-                "tools_allowlist": {
-                    "gmail": {"read": ["GMAIL_FETCH_EMAILS"], "write_safe": ["GMAIL_CREATE_EMAIL_DRAFT"]},
-                    "googlecalendar": {"read": ["GOOGLECALENDAR_FIND_EVENT"], "write_safe": ["GOOGLECALENDAR_CREATE_EVENT"]},
-                    "googledrive": {"read": ["GOOGLEDRIVE_FIND_FILE", "GOOGLEDRIVE_DOWNLOAD_FILE"], "write_safe": ["GOOGLEDRIVE_UPLOAD_FILE"]},
-                },
-            }
-        },
-        "paths": {"project_root": "/tmp/test-workspace-actions", "upload_roots": [__import__("tempfile").gettempdir()]},
-    }
-
-
-@pytest.fixture
-def mcp_key():
-    os.environ["COMPOSIO_MCP_KEY"] = "fake"
-    yield
-    os.environ.pop("COMPOSIO_MCP_KEY", None)
-
-
 class TestProviderCapabilities:
-    def test_composio_mcp_supports(self, composio_config, mcp_key):
-        from providers.composio_mcp_workspace import ComposioMCPWorkspaceClient
-        client = ComposioMCPWorkspaceClient(composio_config)
-        assert client.provider_name == "composio:mcp"
-        assert client.supports("gmail.search") is True
-        assert client.supports("gmail.send") is True
-        assert client.supports("drive.upload") is True   # binary via MCP sandbox staging (PR #14)
-
     def test_google_supports(self):
         from providers.google_workspace import GoogleWorkspaceClient
         with patch("providers.google_workspace._find_google_api_script", return_value=Path("/fake")):
@@ -68,17 +32,10 @@ class TestProviderCapabilities:
         assert client.supports("gmail.send") is True
         assert client.supports("calendar.create") is True
 
-    def test_capabilities_matrix_has_mcp(self):
+    def test_capabilities_matrix_unknown_spelling_empty(self):
+        """An unregistered provider spelling has no capabilities."""
         from workspace_capabilities import get_capabilities
-        caps = get_capabilities("composio:mcp")
-        assert caps["gmail.search"] is True
-        assert caps["gmail.send"] is True
-
-    def test_capabilities_matrix_no_sdk(self):
-        """composio:sdk should no longer exist in capabilities."""
-        from workspace_capabilities import get_capabilities
-        caps = get_capabilities("composio:sdk")
-        assert caps == {}  # SDK caps removed in v0.1.9
+        assert get_capabilities("google_api:sdk") == {}
 
 
 class TestGoogleProviderWriteActions:

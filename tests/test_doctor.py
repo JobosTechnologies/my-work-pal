@@ -56,37 +56,25 @@ def test_all_checks_run(tmp_path):
     assert "audit_runs_dirs" in names
 
 
-def test_cron_check_passes_hermes_home_env(tmp_path, monkeypatch):
-    """_check_cron must resolve the cron store via get_hermes_home().
+def test_cron_check_reads_the_cron_store(tmp_path, monkeypatch):
+    """_check_cron reads the standalone cron store under the data home.
 
-    Regression: the check shells out to `hermes cron list --all` with the
-    inherited environment. On a nonstandard-HERMES_HOME install
-    (HERMES_HOME=~/hermes while ~/.hermes also exists) the subprocess
-    resolved its jobs store to ~/.hermes and reported phantom
-    `missing references: ['daily-briefing', 'deadline-tracker']` against a
-    healthy install. The env passed to the subprocess must carry the
-    resolved HERMES_HOME and must not carry CHIEF_OF_STAFF_HERMES_HOME
-    (the hermes CLI does not know that override).
+    The store lives at <data home>/cron/jobs.json, resolved via
+    get_hermes_home() (CHIEF_OF_STAFF_HERMES_HOME override included); the
+    check passes when the installed jobs reference the daily briefing and
+    the deadline tracker.
     """
-    captured: dict[str, dict[str, str]] = {}
-
-    class FakeProc:
-        stdout = "CoS Evening Briefing (daily-briefing, deadline-tracker)"
-        stderr = ""
-
-    def fake_run(argv, capture_output, text, timeout, check, env):
-        captured["env"] = env
-        return FakeProc()
-
-    monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setenv("CHIEF_OF_STAFF_HERMES_HOME", str(tmp_path / "override"))
     monkeypatch.delenv("HERMES_HOME", raising=False)
+    import cron_store
+
+    cron_store.upsert_job({"id": "daily-briefing", "name": "daily-briefing",
+                           "schedule": "0 7 * * *", "prompt": "brief", "enabled": True})
+    cron_store.upsert_job({"id": "deadline-tracker", "name": "deadline-tracker",
+                           "schedule": "0 8 * * *", "prompt": "deadlines", "enabled": True})
     from doctor_base import _check_cron
 
     result = _check_cron(False, None, tmp_path / "company.yaml")
-    env = captured["env"]
-    assert env["HERMES_HOME"] == str(tmp_path / "override")
-    assert "CHIEF_OF_STAFF_HERMES_HOME" not in env
     assert result.status == "pass"
 
 
@@ -449,15 +437,13 @@ def test_doctor_pins_docuseal_dns_between_validation_and_open(monkeypatch, tmp_p
     assert resolver_calls == 1
 
 
-def test_doctor_microsoft_capability_key(tmp_path):
+def test_doctor_m365_capability_key(tmp_path):
     result = _check_workspace_provider(
         False,
         {
             "integrations": {
                 "workspace": {
-                    "provider": "composio",
-                    "mode": "mcp",
-                    "family": "microsoft",
+                    "provider": "m365",
                 }
             }
         },
@@ -465,11 +451,11 @@ def test_doctor_microsoft_capability_key(tmp_path):
     )
 
     assert result.status == "pass"
-    assert "composio_microsoft:mcp" in result.detail
+    assert "m365" in result.detail
     supported = result.detail.split("supported:", 1)[1].split("; unsupported:", 1)[0]
     unsupported = result.detail.split("; unsupported:", 1)[1]
     # draft/calendar/mail-move/send/folders/tags + OneDrive download/trash and
-    # (PR #14) files.upload advertised supported; calendar.cancel unsupported.
+    # files.upload advertised supported; contacts writes unsupported.
     assert "mail.draft" in supported
     assert "calendar.create" in supported
     assert "mail.archive" in supported
@@ -478,11 +464,12 @@ def test_doctor_microsoft_capability_key(tmp_path):
     assert "mail.tag" in supported
     assert "files.download" in supported
     assert "files.upload" in supported
+    assert "calendar.cancel" in unsupported
     assert "mail.draft" not in unsupported
     assert "calendar.create" not in unsupported
     assert "mail.send" not in unsupported
     assert "files.upload" not in unsupported
-    assert "calendar.cancel" in unsupported
+    assert "contacts.create" in unsupported
 
 
 def test_doctor_validates_overlay_when_present(monkeypatch, tmp_path):

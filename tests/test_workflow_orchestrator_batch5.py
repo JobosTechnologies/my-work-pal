@@ -299,144 +299,8 @@ def _pending_ids(config):
     return [item.get("id") for item in (list_pending_actions(config, include_expired=True) or [])]
 
 
-def _hook_names(event: str) -> list[str]:
-    from hooks import ALL_HOOKS
-
-    return [name for name, _callback in ALL_HOOKS[event]]
-
-
 # ---------------------------------------------------------------------------
-# Part 1: hooks.py ALL_HOOKS registration contract
-# ---------------------------------------------------------------------------
-
-
-def test_hooks_py_imports_cleanly_with_workflow_hooks_present():
-    """Wiring: hooks.py imports while workflow_hooks is in-repo (no absent-module pin)."""
-    import hooks
-    import workflow_hooks
-
-    assert hooks.ALL_HOOKS
-    assert callable(workflow_hooks.pointer_strip)
-    assert callable(workflow_hooks.advancement)
-    pre_callbacks = [cb for _name, cb in hooks.ALL_HOOKS["pre_llm_call"]]
-    if workflow_hooks.pointer_strip not in pre_callbacks:
-        pytest.fail("RED: hooks.ALL_HOOKS['pre_llm_call'] does not reference workflow_hooks.pointer_strip")
-
-
-def test_hooks_py_imports_workflow_hooks_at_module_level():
-    """Module-level import required; lazy import inside ALL_HOOKS construction is forbidden.
-
-    Review round B (K1): the import may sit inside a module-level try/except
-    (guarded import with None fallbacks) — it must still execute at module
-    load, not lazily inside a function or ALL_HOOKS construction.
-    """
-    tree = ast.parse((PLUGIN_ROOT / "hooks.py").read_text(encoding="utf-8"))
-    found = False
-    for node in tree.body:
-        candidates = [node]
-        if isinstance(node, ast.Try):
-            candidates = node.body + node.orelse + node.finalbody
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue  # function-level lazy import is forbidden here
-        for cand in candidates:
-            if isinstance(cand, ast.ImportFrom) and cand.module == "workflow_hooks":
-                found = True
-                break
-            if isinstance(cand, ast.Import) and any(alias.name == "workflow_hooks" for alias in cand.names):
-                found = True
-                break
-        if found:
-            break
-    if not found:
-        pytest.fail("RED: hooks.py must import workflow_hooks at module level")
-
-
-def test_all_hooks_pre_llm_call_appends_workflow_pointer_strip_last():
-    """pre_llm_call keeps existing first-call order; workflow_pointer_strip is appended last."""
-    names = _hook_names("pre_llm_call")
-    if "workflow_pointer_strip" not in names:
-        pytest.fail("RED: workflow_pointer_strip not in ALL_HOOKS['pre_llm_call']")
-    assert names == PRE_LLM_CALL_NAMES
-    assert names[-1] == "workflow_pointer_strip"
-
-
-def test_all_hooks_post_tool_call_appends_workflow_advancement_last():
-    """post_tool_call keeps existing first-call order; workflow_advancement is appended last."""
-    names = _hook_names("post_tool_call")
-    if "workflow_advancement" not in names:
-        pytest.fail("RED: workflow_advancement not in ALL_HOOKS['post_tool_call']")
-    assert names == POST_TOOL_CALL_NAMES
-    assert names[-1] == "workflow_advancement"
-
-
-def test_workflow_hook_tuples_are_name_callback_identity():
-    """ALL_HOOKS entries are (name, callback) tuples; callbacks are the workflow_hooks functions."""
-    import workflow_hooks
-    from hooks import ALL_HOOKS
-
-    pre = ALL_HOOKS["pre_llm_call"]
-    post = ALL_HOOKS["post_tool_call"]
-    pointer = pre[-1]
-    advance = post[-1]
-    assert isinstance(pointer, tuple) and len(pointer) == 2
-    assert isinstance(advance, tuple) and len(advance) == 2
-    assert pointer[0] == "workflow_pointer_strip"
-    assert advance[0] == "workflow_advancement"
-    assert pointer[1] is workflow_hooks.pointer_strip
-    assert advance[1] is workflow_hooks.advancement
-    assert callable(pointer[1]) and callable(advance[1])
-
-
-def test_register_all_hooks_registers_existing_plus_two():
-    """register_all_hooks still registers every ALL_HOOKS entry (existing 10 + 2 workflow hooks)."""
-    from hooks import ALL_HOOKS, register_all_hooks
-
-    class _RecordingCtx:
-        def __init__(self):
-            self.calls: list[tuple[str, object]] = []
-
-        def register_hook(self, event, callback):
-            self.calls.append((event, callback))
-
-    ctx = _RecordingCtx()
-    register_all_hooks(ctx)
-    assert _hook_names("on_session_start") == ON_SESSION_START_NAMES
-    assert _hook_names("pre_tool_call") == PRE_TOOL_CALL_NAMES
-    assert _hook_names("post_llm_call") == POST_LLM_CALL_NAMES
-    expected = sum(len(hooks) for hooks in ALL_HOOKS.values())
-    assert expected == WIRED_HOOK_COUNT
-    assert len(ctx.calls) == WIRED_HOOK_COUNT
-    registered_fns = {cb for _event, cb in ctx.calls}
-    import workflow_hooks
-
-    assert workflow_hooks.pointer_strip in registered_fns
-    assert workflow_hooks.advancement in registered_fns
-
-
-def test_register_all_hooks_fail_soft_continues_after_raise():
-    """A register_hook that raises does not break registration of the rest (hooks.py fail-soft)."""
-    from hooks import register_all_hooks
-
-    import workflow_hooks
-
-    class _RecordingCtx:
-        def __init__(self):
-            self.calls: list[tuple[str, object]] = []
-
-        def register_hook(self, event, callback):
-            if callback is workflow_hooks.pointer_strip:
-                raise RuntimeError("boom")
-            self.calls.append((event, callback))
-
-    ctx = _RecordingCtx()
-    register_all_hooks(ctx)
-    assert workflow_hooks.pointer_strip not in {cb for _event, cb in ctx.calls}
-    assert workflow_hooks.advancement in {cb for _event, cb in ctx.calls}
-    assert len(ctx.calls) == WIRED_HOOK_COUNT - 1
-
-
-# ---------------------------------------------------------------------------
-# Part 2: chief_of_staff.py workflows subcommand — parser shape
+# Part 1: workflows CLI + install contract
 # ---------------------------------------------------------------------------
 
 
@@ -799,7 +663,9 @@ def test_workflows_install_scheduled_calls_cron_idempotent(temp_project, monkeyp
     )
     second = workflow_cron.get_cron_binding("invoice-chase", config=config)
     assert second["schedule_id"] == schedule_id
-    assert any("cron" in cmd and "create" in cmd for cmd in captured)
+    from cron_store import load_jobs
+
+    assert schedule_id in {job.get("id") for job in load_jobs()}
 
 
 def test_workflows_install_without_schedule_skips_cron(temp_project, monkeypatch):
@@ -946,7 +812,7 @@ def test_workflows_install_uninstall_never_mutate_review_queue(temp_project, mon
         "sess-1",
     )
     assert rc_exec == 0
-    assert any("cron" in cmd and "create" in cmd for cmd in captured)
+    assert workflow_cron.get_cron_binding("invoice-chase", config=config) is not None
     mutations_after_install = list(mutations)
     rc_un, _out_u, _err_u = _cos(config_path, "workflows", "uninstall", "invoice-chase")
     assert rc_un == 0

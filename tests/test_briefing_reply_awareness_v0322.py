@@ -7,7 +7,7 @@ Covers the review notes on PR #19:
 - The sent-mail scan window (lookback days / max messages) is configurable via
   an optional ``briefing`` config section so older replies can still suppress.
 - Full ``collect_gmail`` unread→reply suppression exercised end-to-end with the
-  real Composio field shape (``messageTimestamp`` + ``"Name <email>"`` sender +
+  real toolkit field shape (``messageTimestamp`` + ``"Name <email>"`` sender +
   ``threadId``), closing the gap the live 0→5 index check left open.
 """
 from __future__ import annotations
@@ -107,7 +107,7 @@ class TestReplyScanLimits:
 
 
 class TestCollectGmailLiveShapeEndToEnd:
-    """Full collect_gmail suppress path with Composio's real field shape."""
+    """Full collect_gmail suppress path with the toolkit's real field shape."""
 
     def _msg(self, thread, sender, ts, mid):
         return {

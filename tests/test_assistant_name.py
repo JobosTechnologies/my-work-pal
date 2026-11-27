@@ -65,16 +65,16 @@ def test_doctor_warns_about_an_existing_disallowed_name(tmp_path):
 
 @pytest.mark.parametrize("name", INVALID)
 def test_a_disallowed_name_never_becomes_a_command(name):
-    import hermes_surface
+    import cos_surface
 
-    assert hermes_surface.command_names({"assistant": {"name": name}}) == ["cos"]
+    assert cos_surface.command_names({"assistant": {"name": name}}) == ["cos"]
 
 
 @pytest.mark.parametrize("name", VALID)
 def test_every_valid_name_is_a_legal_chat_command(name):
     import re
 
-    import hermes_surface
+    import cos_surface
 
-    for command in hermes_surface.command_names({"assistant": {"name": name}}):
+    for command in cos_surface.command_names({"assistant": {"name": name}}):
         assert re.fullmatch(r"[a-z][a-z0-9_]{0,31}", command)

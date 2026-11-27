@@ -179,52 +179,6 @@ class TestWikiSearchSubcommand:
 # 2. Wiki context injection hook
 # ═══════════════════════════════════════════════════════════════
 
-class TestWikiContextInjection:
-    """A pre_llm_call hook must inject relevant wiki context."""
-
-    def test_hook_exists(self):
-        """wiki_context_injection hook must exist in hooks.py."""
-        sys.path.insert(0, str(PLUGIN_ROOT))
-        try:
-            from hooks import ALL_HOOKS
-            pre_hooks = ALL_HOOKS.get("pre_llm_call", [])
-            hook_names = [name for name, _ in pre_hooks]
-            assert "wiki_context_injection" in hook_names, (
-                f"wiki_context_injection must be in ALL_HOOKS['pre_llm_call']. "
-                f"Found: {hook_names}"
-            )
-        finally:
-            sys.path.pop(0)
-
-    def test_hook_callable(self):
-        """wiki_context_injection must be callable and return str or None."""
-        sys.path.insert(0, str(PLUGIN_ROOT))
-        try:
-            from hooks import wiki_context_injection
-            result = wiki_context_injection(context={}, message="")
-            assert result is None or isinstance(result, str), (
-                "hook must return str or None"
-            )
-        finally:
-            sys.path.pop(0)
-
-    def test_hook_skips_short_messages(self):
-        """Hook must not fire on very short messages (< 5 words)."""
-        sys.path.insert(0, str(PLUGIN_ROOT))
-        try:
-            from hooks import wiki_context_injection
-            result = wiki_context_injection(context={}, message="hi")
-            assert result is None, (
-                "Hook must not fire on very short messages"
-            )
-        finally:
-            sys.path.pop(0)
-
-
-# ═══════════════════════════════════════════════════════════════
-# 3. Opus P4B remaining fixes
-# ═══════════════════════════════════════════════════════════════
-
 class TestOpusP4BFixes:
     """Remaining Opus P4B findings applied."""
 

@@ -65,18 +65,18 @@ class TestDocumentHandoff:
     """Document Preparer handoff: upload + draft in one command."""
 
     def test_handoff_calls_drive_upload_then_gmail_draft(self, fake_config, auto_approve, tmp_path):
-        """Handoff under composio provider: upload + draft both called."""
-        mock_composio = MagicMock()
-        mock_composio.provider_name = "composio:mcp"
-        mock_composio.supports.side_effect = lambda action: True  # composio supports everything
-        mock_composio.files_upload.return_value = {
-            "success": True, "action": "drive.upload", "provider": "composio:mcp",
+        """Handoff under the full-capability mock: upload + draft both called."""
+        mock_full = MagicMock()
+        mock_full.provider_name = "m365"
+        mock_full.supports.side_effect = lambda action: True  # the mock supports everything
+        mock_full.files_upload.return_value = {
+            "success": True, "action": "drive.upload", "provider": "m365",
             "tool_slug": "", "target": str(tmp_path / "NDA.docx"),
             "data": {"id": "f1", "webViewLink": "https://drive.google.com/file/d/f1/view"},
             "error": None, "audited": True,
         }
-        mock_composio.mail_create_draft.return_value = {
-            "success": True, "action": "gmail.draft", "provider": "composio:mcp",
+        mock_full.mail_create_draft.return_value = {
+            "success": True, "action": "gmail.draft", "provider": "m365",
             "tool_slug": "", "target": "client@test.com",
             "data": {"id": "d1"},
             "error": None, "audited": True,
@@ -84,7 +84,7 @@ class TestDocumentHandoff:
         test_file = tmp_path / "NDA.docx"
         test_file.write_text("dummy")
         with patch("document_actions.load_config", return_value=fake_config), \
-             patch("document_actions.get_client", return_value=mock_composio):
+             patch("document_actions.get_client", return_value=mock_full):
             import document_actions
             import io
             from contextlib import redirect_stdout
@@ -96,87 +96,87 @@ class TestDocumentHandoff:
                     "--body", "Please review the attached NDA.",
                 ])
         assert rc == 0
-        mock_composio.files_upload.assert_called_once()
-        mock_composio.mail_create_draft.assert_called_once()
+        mock_full.files_upload.assert_called_once()
+        mock_full.mail_create_draft.assert_called_once()
 
     def test_handoff_does_not_call_gmail_send(self, fake_config, auto_approve, tmp_path):
-        """Handoff under composio: gmail_send never called."""
-        mock_composio = MagicMock()
-        mock_composio.provider_name = "composio:mcp"
-        mock_composio.supports.side_effect = lambda action: True
-        mock_composio.files_upload.return_value = {
+        """Handoff under the full-capability mock: gmail_send never called."""
+        mock_full = MagicMock()
+        mock_full.provider_name = "m365"
+        mock_full.supports.side_effect = lambda action: True
+        mock_full.files_upload.return_value = {
             "success": True, "data": {"webViewLink": "https://drive.google.com/file/d/f1/view"},
         }
-        mock_composio.mail_create_draft.return_value = {
+        mock_full.mail_create_draft.return_value = {
             "success": True, "data": {"id": "d1"},
         }
         test_file = tmp_path / "NDA.docx"
         test_file.write_text("dummy")
         with patch("document_actions.load_config", return_value=fake_config), \
-             patch("document_actions.get_client", return_value=mock_composio):
+             patch("document_actions.get_client", return_value=mock_full):
             import document_actions
             document_actions.main([
                 "handoff", "--file", str(test_file),
                 "--to", "client@test.com", "--subject", "NDA", "--body", "Body",
             ])
-        mock_composio.mail_send.assert_not_called()
+        mock_full.mail_send.assert_not_called()
 
     def test_handoff_includes_drive_link_in_body(self, fake_config, auto_approve, tmp_path):
-        """Under composio, handoff body includes the uploaded file link."""
-        mock_composio = MagicMock()
-        mock_composio.provider_name = "composio:mcp"
-        mock_composio.supports.side_effect = lambda action: True
-        mock_composio.files_upload.return_value = {
+        """Under the full-capability mock, handoff body includes the uploaded file link."""
+        mock_full = MagicMock()
+        mock_full.provider_name = "m365"
+        mock_full.supports.side_effect = lambda action: True
+        mock_full.files_upload.return_value = {
             "success": True, "data": {"webViewLink": "https://drive.google.com/file/d/f1/view"},
         }
-        mock_composio.mail_create_draft.return_value = {"success": True, "data": {"id": "d1"}}
+        mock_full.mail_create_draft.return_value = {"success": True, "data": {"id": "d1"}}
         test_file = tmp_path / "NDA.docx"
         test_file.write_text("dummy")
         with patch("document_actions.load_config", return_value=fake_config), \
-             patch("document_actions.get_client", return_value=mock_composio):
+             patch("document_actions.get_client", return_value=mock_full):
             import document_actions
             document_actions.main([
                 "handoff", "--file", str(test_file),
                 "--to", "client@test.com", "--subject", "NDA", "--body", "Please review.",
             ])
-        call_args = mock_composio.mail_create_draft.call_args
+        call_args = mock_full.mail_create_draft.call_args
         body = call_args[0][2]
         assert "https://drive.google.com/file/d/f1/view" in body
         assert "File link:" in body
 
     def test_handoff_fails_if_upload_fails(self, fake_config, auto_approve, tmp_path):
-        """Under composio, if upload fails, draft is not called."""
-        mock_composio = MagicMock()
-        mock_composio.provider_name = "composio:mcp"
-        mock_composio.supports.side_effect = lambda action: True
-        mock_composio.files_upload.return_value = {
+        """Under the full-capability mock, if upload fails, draft is not called."""
+        mock_full = MagicMock()
+        mock_full.provider_name = "m365"
+        mock_full.supports.side_effect = lambda action: True
+        mock_full.files_upload.return_value = {
             "success": False, "error": "upload failed", "audited": True,
         }
         test_file = tmp_path / "bad.docx"
         test_file.write_text("dummy")
         with patch("document_actions.load_config", return_value=fake_config), \
-             patch("document_actions.get_client", return_value=mock_composio):
+             patch("document_actions.get_client", return_value=mock_full):
             import document_actions
             rc = document_actions.main([
                 "handoff", "--file", str(test_file),
                 "--to", "c@test.com", "--subject", "S", "--body", "B",
             ])
         assert rc == 1
-        mock_composio.mail_create_draft.assert_not_called()
+        mock_full.mail_create_draft.assert_not_called()
 
     def test_handoff_summary_output(self, fake_config, auto_approve, tmp_path):
         """Summary mode prints human-readable output."""
-        mock_composio = MagicMock()
-        mock_composio.provider_name = "composio:mcp"
-        mock_composio.supports.side_effect = lambda action: True
-        mock_composio.files_upload.return_value = {
+        mock_full = MagicMock()
+        mock_full.provider_name = "m365"
+        mock_full.supports.side_effect = lambda action: True
+        mock_full.files_upload.return_value = {
             "success": True, "data": {"webViewLink": "https://drive.google.com/file/d/f1/view"},
         }
-        mock_composio.mail_create_draft.return_value = {"success": True, "data": {"id": "d1"}}
+        mock_full.mail_create_draft.return_value = {"success": True, "data": {"id": "d1"}}
         test_file = tmp_path / "NDA.docx"
         test_file.write_text("dummy")
         with patch("document_actions.load_config", return_value=fake_config), \
-             patch("document_actions.get_client", return_value=mock_composio):
+             patch("document_actions.get_client", return_value=mock_full):
             import document_actions
             import io
             from contextlib import redirect_stdout

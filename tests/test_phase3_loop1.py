@@ -257,54 +257,6 @@ class TestNoFieldFabrication:
 # Opus M5: MCP session recovery from lost session (404)
 # ═══════════════════════════════════════════════════════════════
 
-class TestMCPSessionRecovery404:
-    """MCP client must recover from a lost session (404) by re-initializing.
-
-    Currently call_tool/list_tools convert 404 to terminal ConnectionError.
-    The fix: on 404, clear session, re-initialize, retry once.
-    """
-
-    def test_call_tool_recovers_from_404(self):
-        """call_tool must re-initialize and retry on HTTP 404."""
-        from mcp_client import MCPClient
-
-        os.environ["FAKE_KEY"] = "fake-key-12345"
-        client = MCPClient("https://fake.example.com/mcp", key_env="FAKE_KEY")
-        client._initialized = True
-        client._session_id = "old-session"
-
-        # First call_tool gets 404, second (after re-init) gets 200
-        mock_404 = MagicMock()
-        mock_404.status_code = 404
-        mock_404.text = "Session not found"
-
-        mock_200 = MagicMock()
-        mock_200.status_code = 200
-        mock_200.text = 'data: {"jsonrpc":"2.0","id":3,"result":{"content":[{"type":"text","text":"ok"}]}}'
-
-        # Re-init sequence
-        mock_init = MagicMock()
-        mock_init.status_code = 200
-        mock_init.headers = {"mcp-session-id": "new-session"}
-        mock_init.text = '{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{}}}'
-
-        mock_notif = MagicMock()
-        mock_notif.status_code = 202
-
-        with patch("requests.post",
-                   side_effect=[mock_404, mock_init, mock_notif, mock_200]):
-            result = client.call_tool("test_tool", {"arg": "val"})
-
-        assert result is not None
-        assert client._session_id == "new-session"
-
-        os.environ.pop("FAKE_KEY", None)
-
-
-# ═══════════════════════════════════════════════════════════════
-# Task 3.1: Stuck-action reconciliation
-# ═══════════════════════════════════════════════════════════════
-
 class TestStuckActionReconciliation:
     """Actions stuck in 'executing' state must be detected and recoverable.
 

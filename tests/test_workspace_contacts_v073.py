@@ -32,8 +32,7 @@ sys.path.insert(0, str(PLUGIN_ROOT / "skills" / "document-preparer" / "scripts")
 import workspace_guardrails as wg  # noqa: E402
 
 CONTACT_WRITES = ("contacts.create", "contacts.update", "contacts.delete")
-NO_CONTACTS_PROVIDERS = ("composio", "composio:mcp", "composio_microsoft",
-                         "composio_microsoft:mcp", "m365", "agent")
+NO_CONTACTS_PROVIDERS = ("m365", "agent")
 
 
 @pytest.fixture
@@ -215,8 +214,6 @@ def test_refusal_reason_is_specific(provider, action):
     reason = get_unsupported_reason(provider, action)
     assert reason != f"{action} is not supported by {provider}"
     assert "google_api" in reason
-    if provider.split(":")[0] == "composio":
-        assert "googlecontacts" in reason.lower()
 
 
 @pytest.mark.parametrize("action", ("contacts.list",) + CONTACT_WRITES)

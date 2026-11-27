@@ -375,7 +375,7 @@ class TestExecutionFailurePaths:
         """Unsupported action → mark_failed with error string."""
         config, project = with_secret
         mock_client = MagicMock()
-        mock_client.provider_name = "composio:mcp"
+        mock_client.provider_name = "m365"
         mock_client.supports.side_effect = lambda a: a != "gmail.label"
         action_id = self._create_and_approve(config, "gmail.label",
             {"message_id": "m1", "label_id": "L1"}, mock_client)

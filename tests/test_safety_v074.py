@@ -285,7 +285,7 @@ class TestBreakGlass:
 # ─── 6. hosted sessions really refuse credential providers ──────────────────
 
 class TestHostedRefusal:
-    @pytest.mark.parametrize("provider", ["google_api", "m365", "composio"])
+    @pytest.mark.parametrize("provider", ["google_api", "m365"])
     def test_credential_provider_is_not_built(self, config, monkeypatch, provider):
         from workspace_client import get_workspace_client
         from workspace_guardrails import HostedSessionRefusal

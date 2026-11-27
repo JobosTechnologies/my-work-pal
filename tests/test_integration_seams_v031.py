@@ -175,7 +175,7 @@ class TestNeutralGuardrailClassification:
             assert reversible in wg.SAFE_WRITE_ACTIONS, reversible
 
     def test_legacy_soft_delete_ids_are_gated(self):
-        """Legacy Google/Composio archive/trash spellings must be WRITE_ACTIONS.
+        """Legacy Google archive/trash spellings must be WRITE_ACTIONS.
 
         Previously they were left out so confirm_action() default-allowed them.
         They are now gated the same way as their neutral twins.

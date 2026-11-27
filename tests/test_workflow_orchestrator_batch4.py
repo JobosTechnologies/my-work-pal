@@ -169,7 +169,8 @@ def _install(mod, config, *, name="invoice-chase", workflow=None, session_id="se
 
 
 def _fake_subprocess_ok(monkeypatch, captured=None):
-    """Mirror install_cron.py: monkeypatch subprocess.run to capture + succeed."""
+    """Legacy safeguard: registration no longer shells out (it writes the
+    cron store), but patching subprocess.run keeps any stray shell-out inert."""
 
     class _FakeProc:
         stdout = "ok"
@@ -239,22 +240,23 @@ def test_install_workflow_cron_validates_via_batch1_validator(temp_project):
         )
 
 
-def test_install_workflow_cron_registers_via_hermes_cron_create_subprocess(
+def test_install_workflow_cron_registers_in_the_cron_store(
     temp_project, monkeypatch
 ):
-    """US-9: registration mirrors install_cron.py -- shell out to ``hermes cron create``."""
+    """US-9: registration writes the job to the standalone cron store."""
     config, _project, _config_path = temp_project
     mod = _cron()
-    captured: list[list[str]] = []
-    _fake_subprocess_ok(monkeypatch, captured)
-    mod.install_workflow_cron(
+    _fake_subprocess_ok(monkeypatch)
+    binding = mod.install_workflow_cron(
         "invoice-chase", _validated(), config, now=FROZEN, session_id="sess-1"
     )
-    assert captured, "install must shell out to hermes cron"
-    cmd = captured[0]
-    assert cmd[0] == "hermes"
-    assert "cron" in cmd
-    assert "*/5 * * * *" in cmd or any("*/5" in part for part in cmd)
+    from cron_store import load_jobs
+
+    jobs = {job.get("id"): job for job in load_jobs()}
+    assert binding["schedule_id"] in jobs, "install must register the job in the cron store"
+    job = jobs[binding["schedule_id"]]
+    assert "*/5" in str(job.get("schedule"))
+    assert "invoice-chase" in str(job.get("prompt"))
 
 
 def test_install_workflow_cron_schedule_id_is_deterministic_from_workflow_name(
@@ -417,20 +419,17 @@ def test_uninstall_workflow_cron_removes_binding(temp_project, monkeypatch):
     assert "invoice-chase" not in bindings
 
 
-def test_uninstall_workflow_cron_calls_hermes_cron_remove(temp_project, monkeypatch):
-    """US-9: uninstall shells out to ``hermes cron`` remove/delete (mirror install_cron.py)."""
+def test_uninstall_workflow_cron_removes_the_cron_store_job(temp_project, monkeypatch):
+    """US-9: uninstall removes the job from the standalone cron store."""
     config, _project, _config_path = temp_project
     mod = _cron()
-    captured: list[list[str]] = []
-    _fake_subprocess_ok(monkeypatch, captured)
+    _fake_subprocess_ok(monkeypatch)
     binding = _install(mod, config)
-    captured.clear()
+    from cron_store import load_jobs
+
+    assert binding["schedule_id"] in {job.get("id") for job in load_jobs()}
     mod.uninstall_workflow_cron("invoice-chase", config)
-    assert captured, "uninstall must shell out to hermes cron"
-    cmd = captured[0]
-    assert cmd[0] == "hermes"
-    assert "cron" in cmd
-    assert binding["schedule_id"] in cmd or "invoice-chase" in cmd
+    assert binding["schedule_id"] not in {job.get("id") for job in load_jobs()}
 
 
 def test_uninstall_workflow_cron_nonexistent_raises_workflow_run_error(

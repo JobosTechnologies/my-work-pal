@@ -40,19 +40,6 @@ def google_config():
 
 
 @pytest.fixture
-def composio_config():
-    """Config with composio provider."""
-    return {
-        "integrations": {
-            "workspace": {
-                "provider": "composio",
-                "mode": "mcp",
-            }
-        }
-    }
-
-
-@pytest.fixture
 def no_integrations_config():
     """Config with no integrations section (should default to google_api)."""
     return {
@@ -70,30 +57,6 @@ class TestWorkspaceClientFactory:
             client = get_workspace_client(google_config)
         assert isinstance(client, GoogleWorkspaceClient)
         assert isinstance(client, WorkspaceClient)
-
-    @pytest.fixture
-    def composio_config(self):
-        """Config with composio provider."""
-        return {
-            "integrations": {
-                "workspace": {
-                    "provider": "composio",
-                    "mode": "mcp",
-                    "user_id": "test-user",
-                    "toolkits": ["gmail", "googlecalendar", "googledrive"],
-                    "mcp": {"endpoint": "https://connect.composio.dev/mcp", "key_env": "COMPOSIO_MCP_KEY"},
-                }
-            },
-            "paths": {
-                "project_root": "/tmp/test-composio",
-            },
-        }
-
-    def test_returns_composio_client(self, composio_config):
-        from workspace_client import get_workspace_client
-        from providers.composio_mcp_workspace import ComposioMCPWorkspaceClient
-        client = get_workspace_client(composio_config)
-        assert isinstance(client, ComposioMCPWorkspaceClient)
 
     def test_defaults_to_google_when_no_integrations(self, no_integrations_config):
         from workspace_client import get_workspace_client

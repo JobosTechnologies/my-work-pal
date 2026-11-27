@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v0.3.15 — email-organisation classify → suggest → prepare on Composio MS."""
+"""v0.3.15 — email-organisation classify → suggest → prepare on Outlook (m365)."""
 from __future__ import annotations
 
 import os
@@ -25,9 +25,7 @@ def temp_project():
         config = {
             "integrations": {
                 "workspace": {
-                    "provider": "composio",
-                    "mode": "mcp",
-                    "family": "microsoft",
+                    "provider": "m365",
                 }
             },
             "paths": {"project_root": d},
@@ -40,7 +38,7 @@ OUTLOOK_POLICY = {
     "version": 1,
     "mode": "use_existing_first",
     "status": "approved",
-    "provider": "composio_microsoft:mcp",
+    "provider": "m365",
     "categories": {
         "finance_invoice": {
             "preferred_label": "Finance/Invoices",
@@ -97,7 +95,7 @@ class TestOutlookClassifySuggestPrepare:
         assert sug["payload"]["label_id"] == "Finance/Invoices"
         assert sug["payload"]["message_id"] == "AAMk-1"
 
-    def test_prepare_pending_on_composio_ms(self, temp_project):
+    def test_prepare_pending_on_m365(self, temp_project):
         from email_classifier import (
             classify_inbox,
             generate_org_suggestions,
@@ -117,7 +115,7 @@ class TestOutlookClassifySuggestPrepare:
         sug_id = sug_result["details"][0]["id"]
 
         mock = MagicMock()
-        mock.provider_name = "composio_microsoft:mcp"
+        mock.provider_name = "m365"
         mock.family = "microsoft"
         mock.supports.return_value = True
 

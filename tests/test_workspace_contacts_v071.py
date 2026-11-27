@@ -9,7 +9,6 @@ Contract tests for the neutral contacts surface:
   google_api.py contacts subcommands (live-verified 2026-09-25 against the
   Phronesis Workspace account; see gws-service-account skill).
 - workspace_capabilities marks contacts.* True for google_api, False for
-  composio (the GOOGLECONTACTS toolkit is not wired — False until live-verified,
   per the capability tripwire convention).
 """
 
@@ -261,22 +260,6 @@ class TestContactsCapabilities:
         assert caps["contacts.update"] is True      # live-verified 2026-09-25 (merge-safe fetch-etag update)
         assert caps["contacts.delete"] is True     # live-verified 2026-09-25
         assert supports("google_api", "contacts.create") is True
-
-    def test_composio_contacts_capabilities_false_until_wired(self):
-        # GOOGLECONTACTS toolkit is not wired into the composio provider; a
-        # write stays False until a live run exercises it (tripwire convention).
-        # Direct indexing (not .get) enforces the explicit-key convention:
-        # every provider dict must spell out contacts.* keys.
-        from workspace_capabilities import get_capabilities, supports, unsupported_actions
-        for provider in ("composio", "composio:mcp"):
-            caps = get_capabilities(provider)
-            assert caps["contacts.list"] is False
-            assert caps["contacts.create"] is False
-            assert caps["contacts.update"] is False
-            assert caps["contacts.delete"] is False
-        assert supports("composio", "contacts.create") is False
-        assert "contacts.create" in unsupported_actions("composio")
-        assert "contacts.create" in unsupported_actions("composio:mcp")
 
     def test_every_provider_dict_has_explicit_contacts_keys(self):
         # Guards the convention: capability gaps are spelled out per-provider,

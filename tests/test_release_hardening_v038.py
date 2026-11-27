@@ -20,65 +20,8 @@ for path in (SHARED_SCRIPTS, PROVIDERS, PLUGIN_ROOT):
         sys.path.insert(0, str(path))
 
 
-def _ms_config(tmp_path: Path) -> dict:
-    return {
-        "integrations": {
-            "workspace": {
-                "provider": "composio",
-                "mode": "mcp",
-                "family": "microsoft",
-                "user_id": "release-hardening-test",
-                "toolkits": ["outlook", "one_drive"],
-                "mcp": {
-                    "endpoint": "https://connect.composio.dev/mcp",
-                    "key_env": "COMPOSIO_MCP_KEY",
-                },
-            }
-        },
-        "paths": {"project_root": str(tmp_path)},
-    }
-
-
 def _ok(data):
     return {"data": {"results": [{"response": {"successful": True, "data": data}}]}}
-
-
-def test_composio_rejects_empty_outer_results(monkeypatch, tmp_path):
-    from providers.composio_mcp_workspace import ComposioMCPWorkspaceClient, ComposioReadError
-
-    monkeypatch.setenv("COMPOSIO_MCP_KEY", "test-key")
-    client = ComposioMCPWorkspaceClient(_ms_config(tmp_path))
-    mock = MagicMock()
-    mock.call_tool.return_value = {"data": {"results": []}}
-    client._mcp_client = mock
-
-    with pytest.raises(ComposioReadError, match="malformed"):
-        client.mail_search("is:unread")
-
-
-def test_composio_rejects_missing_success_record_list(monkeypatch, tmp_path):
-    from providers.composio_mcp_workspace import ComposioMCPWorkspaceClient, ComposioReadError
-
-    monkeypatch.setenv("COMPOSIO_MCP_KEY", "test-key")
-    client = ComposioMCPWorkspaceClient(_ms_config(tmp_path))
-    mock = MagicMock()
-    mock.call_tool.return_value = _ok({})
-    client._mcp_client = mock
-
-    with pytest.raises(ComposioReadError, match="expected"):
-        client.mail_search("is:unread")
-
-
-def test_composio_accepts_explicit_empty_record_list(monkeypatch, tmp_path):
-    from providers.composio_mcp_workspace import ComposioMCPWorkspaceClient
-
-    monkeypatch.setenv("COMPOSIO_MCP_KEY", "test-key")
-    client = ComposioMCPWorkspaceClient(_ms_config(tmp_path))
-    mock = MagicMock()
-    mock.call_tool.return_value = _ok({"value": []})
-    client._mcp_client = mock
-
-    assert client.mail_search("is:unread") == []
 
 
 def test_rebootstrap_preserves_custom_wiki_and_staging_paths(tmp_path):

@@ -291,12 +291,12 @@ def _no_gateway_signer_leaks(monkeypatch):
     """Signed approvals (approval_signing): plugin registration in a test must
     not enrol any real store, and the gateway's in-memory signer must not leak
     from one test into the next. Tests that exercise enrolment opt in by
-    patching hermes_surface._registry_configs themselves."""
+    patching cos_surface._registry_configs themselves."""
     scripts = str(Path(__file__).resolve().parents[1] / "shared" / "scripts")
     if scripts not in sys.path:
         sys.path.insert(0, scripts)
-    import hermes_surface
+    import cos_surface
 
-    monkeypatch.setattr(hermes_surface, "_registry_configs", lambda: [])
+    monkeypatch.setattr(cos_surface, "_registry_configs", lambda: [])
     yield
-    hermes_surface.deactivate_gateway_signer()
+    cos_surface.deactivate_gateway_signer()

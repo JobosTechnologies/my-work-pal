@@ -213,7 +213,7 @@ class TestCapabilityCheck:
         from suggested_actions import act_on_suggestion
         config, project = temp_project
         mock_client = MagicMock()
-        mock_client.provider_name = "composio:mcp"
+        mock_client.provider_name = "m365"
         mock_client.supports.side_effect = lambda a: a not in ("calendar.list",)
         sug = _make_suggestion(config, "calendar.list")
         with patch("workspace_client.get_workspace_client", return_value=mock_client):
@@ -226,7 +226,7 @@ class TestCapabilityCheck:
         from suggested_actions import act_on_suggestion
         config, project = temp_project
         mock_client = MagicMock()
-        mock_client.provider_name = "composio:mcp"
+        mock_client.provider_name = "m365"
         mock_client.supports.side_effect = lambda a: a != "gmail.draft"
         sug = _make_suggestion(config, "gmail.draft")
         with patch("workspace_client.get_workspace_client", return_value=mock_client):

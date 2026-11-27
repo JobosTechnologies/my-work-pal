@@ -503,7 +503,7 @@ def test_mail_send_and_calendar_write_default_not_tested(monkeypatch):
 
 
 def test_draft_cleaned_up_when_tags_unsupported(monkeypatch):
-    """Composio MS: draft+trash without tags must not leave the draft behind."""
+    """Microsoft provider: draft+trash without tags must not leave the draft behind."""
     client = FakeClient(
         supports_map={
             "mail.draft": True, "mail.trash": True,

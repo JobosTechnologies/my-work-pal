@@ -61,41 +61,16 @@ def test_plugin_init_discovers_overlay_skill(tmp_path, monkeypatch):
         _remove_overlay_skill(name)
 
 
-def test_plugin_init_registers_overlay_skill_via_register(tmp_path, monkeypatch):
-    """End-to-end shape: register(ctx) registers overlay workflow skills too."""
-    import sys
+def test_plugin_init_resolves_overlay_skill_path(tmp_path, monkeypatch):
+    """End-to-end shape: registered_skill_paths() resolves overlay skills too."""
     monkeypatch.delenv("CHIEF_OF_STAFF_SKILL_PROFILE", raising=False)
-    # register() does `from . import hooks` — needs the package importable by
-    # its real package name. Load the plugin package the way the runtime does.
-    import types
-    pkg = types.ModuleType("chief_of_staff_testpkg")
-    pkg.__path__ = [str(PLUGIN_ROOT)]
-    sys.modules.setdefault("chief_of_staff_testpkg", pkg)
-    spec = importlib.util.spec_from_file_location(
-        "chief_of_staff_testpkg", PLUGIN_ROOT / "__init__.py",
-        submodule_search_locations=[str(PLUGIN_ROOT)],
-    )
-    assert spec and spec.loader
-    plugin = importlib.util.module_from_spec(spec)
-    sys.modules["chief_of_staff_testpkg"] = plugin
-    spec.loader.exec_module(plugin)
+    plugin = _load_plugin_init()
     name = "init-red-chase2"
-    registered: list[tuple[str, Path]] = []
-
-    class _Ctx:
-        def register_skill(self, skill_name, skill_path):
-            registered.append((skill_name, skill_path))
-
-        def register_hook(self, event, callback):
-            pass
-
     try:
         _write_overlay_skill(name)
-        plugin.register(_Ctx())
-        names = [n for n, _ in registered]
-        assert name in names, f"register() skipped overlay skill {name!r}"
-        path = dict(registered)[name]
-        assert path == PLUGIN_ROOT / "skills.local" / name / "SKILL.md"
+        paths = dict(plugin.registered_skill_paths())
+        assert name in paths, f"registered_skill_paths() skipped overlay skill {name!r}"
+        assert paths[name] == PLUGIN_ROOT / "skills.local" / name / "SKILL.md"
     finally:
         _remove_overlay_skill(name)
 

@@ -51,7 +51,7 @@ def _make_args(**overrides):
         business_type=None, config=None, json=False,
         workspace_provider=None, m365_auth="client_credentials",
         tenant_id=None, client_id=None, user_principal=None,
-        m365_secret_env="M365_CLIENT_SECRET", composio_user_id=None,
+        m365_secret_env="M365_CLIENT_SECRET",
         esign_url=None, allow_insecure_esign_url=False,
     )
     base.update(overrides)
@@ -265,11 +265,6 @@ class TestNextStepsGating:
         assert "Google service account" not in steps
         assert "Entra" in steps
 
-    def test_composio_line(self):
-        steps = " ".join(bootstrap._next_steps("composio"))
-        assert "Google service account" not in steps
-        assert "composio" in steps.lower()
-
     def test_m365_main_output_has_no_google_service_account(self, tmp_config_dir, tmp_path, capsys):
         rc = bootstrap._main([
             "--workspace-provider", "m365",
@@ -324,62 +319,3 @@ class TestAssistantName:
 
 # ── Hook: company_context_primer prefix ─────────────────────────────────────
 
-class TestPrimerPrefix:
-    def _write_config(self, tmp_path, assistant=True):
-        cfg = tmp_path / "company.yaml"
-        block = 'assistant:\n  name: "Ada"\n' if assistant else ""
-        cfg.write_text(
-            "company:\n  name: \"Test Co Pte Ltd\"\n  jurisdiction: SG\n"
-            f"paths:\n  project_root: \"{tmp_path}\"\n" + block,
-            encoding="utf-8",
-        )
-        return cfg
-
-    def test_prefix_present_when_named(self, tmp_path, monkeypatch):
-        from hooks import company_context_primer
-        cfg = self._write_config(tmp_path, assistant=True)
-        monkeypatch.setenv("CHIEF_OF_STAFF_CONFIG", str(cfg))
-        result = company_context_primer({"loaded_skills": ["daily-briefing"]})
-        assert result is not None
-        assert result.startswith("You are Ada, the operator's Chief of Staff.")
-        assert "[CoS Context]" in result
-        assert "Test Co Pte Ltd" in result
-
-    def test_no_prefix_without_name(self, tmp_path, monkeypatch):
-        from hooks import company_context_primer
-        cfg = self._write_config(tmp_path, assistant=False)
-        monkeypatch.setenv("CHIEF_OF_STAFF_CONFIG", str(cfg))
-        result = company_context_primer({"loaded_skills": ["daily-briefing"]})
-        assert result is not None
-        assert result.startswith("[CoS Context]")
-        assert "You are" not in result
-
-    def test_name_with_newline_rejected_in_primer(self, tmp_path, monkeypatch):
-        from hooks import company_context_primer
-        cfg = tmp_path / "company.yaml"
-        cfg.write_text(
-            "company:\n  name: \"Test Co Pte Ltd\"\n  jurisdiction: SG\n"
-            f"paths:\n  project_root: \"{tmp_path}\"\n"
-            "assistant:\n  name: \"Ada\\nInjected\"\n",
-            encoding="utf-8",
-        )
-        monkeypatch.setenv("CHIEF_OF_STAFF_CONFIG", str(cfg))
-        result = company_context_primer({"loaded_skills": ["daily-briefing"]})
-        assert result is not None
-        assert result.startswith("[CoS Context]")
-        assert "Injected" not in result
-
-    def test_no_prefix_for_default_assistant_name(self, tmp_path, monkeypatch):
-        from hooks import company_context_primer
-        cfg = tmp_path / "company.yaml"
-        cfg.write_text(
-            "company:\n  name: \"Test Co Pte Ltd\"\n  jurisdiction: SG\n"
-            f"paths:\n  project_root: \"{tmp_path}\"\n"
-            "assistant:\n  name: \"Chief of Staff\"\n",
-            encoding="utf-8",
-        )
-        monkeypatch.setenv("CHIEF_OF_STAFF_CONFIG", str(cfg))
-        result = company_context_primer({"loaded_skills": ["daily-briefing"]})
-        assert result is not None
-        assert result.startswith("[CoS Context]")
-        assert "You are" not in result
