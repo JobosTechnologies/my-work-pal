@@ -24,7 +24,7 @@ All Google Calendar access goes through the shared `WorkspaceClient` layer:
 .venv/bin/python skills/calendar-manager/scripts/calendar_actions.py update --event-id <id> --title "New Title"
 ```
 
-`WorkspaceClient` routes to the workspace provider selected by `integrations.workspace.provider` in `company.yaml` (`google_api` | `composio` | `m365`); calendar methods (`calendar_list`, `calendar_create`, `calendar_update`, `calendar_cancel`) are provider-neutral, so the same commands work on Google Calendar or Microsoft 365 (Outlook Calendar). Write actions (create/update) use guardrails (`CHIEF_OF_STAFF_AUTO_APPROVE=1`) and return standardized `ActionResult` objects.
+`WorkspaceClient` routes to the workspace provider selected by `integrations.workspace.provider` in `company.yaml` (`google_api` | `m365`); calendar methods (`calendar_list`, `calendar_create`, `calendar_update`, `calendar_cancel`) are provider-neutral, so the same commands work on Google Calendar or Microsoft 365 (Outlook Calendar). Write actions (create/update) use guardrails (`CHIEF_OF_STAFF_AUTO_APPROVE=1`) and return standardized `ActionResult` objects.
 
 ## When to Use
 

@@ -151,36 +151,16 @@ def _esign_url_configured() -> bool:
     return isinstance(esign, dict) and bool(str(esign.get("url") or "").strip())
 
 
-def register(ctx):
-    """Register skills based on the active profile + 9 quality hooks.
+def registered_skill_paths() -> list[tuple[str, Path]]:
+    """(skill name, SKILL.md path) pairs for the active profile.
 
-    Profiles are defined in plugin.yaml → skill_profiles.
-    Set CHIEF_OF_STAFF_SKILL_PROFILE=enterprise to use the enterprise profile
-    (also enables esign-connector when esign.url is configured).
+    A workflow-installed overlay under skills.local/ wins over the shipped
+    skill of the same name (the custom assistant-name rendering). Plain
+    Python: any host (CLI, agent layer) resolves the same list.
     """
-    skills = _get_registered_skills()
-    for skill_name in skills:
-        # Prefer skills.local/ overlay (custom assistant-name rendering) when present.
+    out: list[tuple[str, Path]] = []
+    for skill_name in _get_registered_skills():
         overlay = PLUGIN_ROOT / "skills.local" / skill_name / "SKILL.md"
         shipped = PLUGIN_ROOT / "skills" / skill_name / "SKILL.md"
-        skill_path = overlay if overlay.exists() else shipped
-        ctx.register_skill(skill_name, skill_path)
-
-    # Register all 9 quality hooks
-    from . import hooks
-    hooks.register_all_hooks(ctx)
-
-    # Catalog rule 11: the plugin's commands run as child processes, so hand
-    # them the declared secrets per session, each read with get_secret.
-    # Older Hermes releases without the API simply skip this.
-    register_session_env = getattr(ctx, "register_session_env", None)
-    if callable(register_session_env):
-        import plugin_secrets  # shared/scripts is on sys.path once hooks is imported
-
-        register_session_env(list(plugin_secrets.SECRETS), plugin_secrets.session_env)
-
-    # Hermes-native surface: read-only cos_* tools for the agent, and the
-    # /<assistant name> + /cos slash command where the user decides.
-    import hermes_surface  # noqa: E402  (shared/scripts on sys.path via hooks)
-
-    hermes_surface.register(ctx)
+        out.append((skill_name, overlay if overlay.exists() else shipped))
+    return out

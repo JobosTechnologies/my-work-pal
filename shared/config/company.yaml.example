@@ -201,83 +201,13 @@ backup:
 
 integrations:
   workspace:
-    provider: google_api        # google_api | composio | m365 | agent
-    mode: direct                # direct | sdk | mcp
-    # provider: agent — Python client is a no-op. Hermes (or another host)
-    # fetches *reads* with its own connectors / already-authed Composio MCP,
-    # writes a schemas.py envelope, and passes --input to compute scripts.
-    # Keep provider: composio|m365|google_api for guarded *writes*.
-    # Composio toolkit family (only used when provider: composio):
-    #   google    -> Gmail / Google Calendar / Google Drive
-    #   microsoft -> Outlook mail / Outlook calendar / OneDrive
-    # Defaults to google. If omitted but the toolkits list below contains
-    # outlook/one_drive, microsoft is inferred (with a one-time warning).
-    family: google
-    user_id: null
-    account_aliases:
-      gmail: null
-      googlecalendar: null
-      googledrive: null
-    toolkits:
-      - gmail
-      - googlecalendar
-      - googledrive
-    # For a Composio Microsoft 365 connection, use instead:
-    #   family: microsoft
-    #   toolkits: [outlook, one_drive, share_point]
-    #   # optional — OneDrive Business recycle-bin scope (auto from webUrl):
-    #   sharepoint_site_name: "/personal/user_contoso_com"
-    #
-    # Optional per-operation Composio tool-slug overrides (provider: composio).
-    # Each operation has a built-in default per family (see
-    # providers/composio_mcp_workspace.py FAMILY_SLUGS). Override an entry ONLY if
-    # Composio renames a tool in their catalog — a wrong slug reports itself with
-    # this exact override path. Microsoft-family defaults (verified against
-    # Composio's live catalog 2026-07-13; reads execution-verified) for reference:
-    # tool_slugs:
-    #   mail_search: OUTLOOK_QUERY_EMAILS
-    #   mail_create_draft: OUTLOOK_CREATE_DRAFT
-    #   calendar_list: OUTLOOK_GET_CALENDAR_VIEW
-    #   calendar_create: OUTLOOK_CALENDAR_CREATE_EVENT
-    #   calendar_update: OUTLOOK_UPDATE_CALENDAR_EVENT
-    #   files_search: ONE_DRIVE_SEARCH_ITEMS
-    #   files_upload: ONE_DRIVE_ONEDRIVE_UPLOAD_FILE
-    #   files_download: ONE_DRIVE_DOWNLOAD_FILE
-    #
-    # OUTLOOK_QUERY_EMAILS ignores Graph $search / KQL. When a Composio Outlook
-    # slug that supports KQL search becomes available, point mail_search at it
-    # (and optionally set mail_search_supports_text_search: true). Until then,
-    # bundled queries that need text search keep any recoverable OData filter
-    # and warn that search was dropped.
-    # mail_search_supports_text_search: false
-    tools_allowlist:
-      gmail:
-        read:
-          - GMAIL_FETCH_EMAILS
-          - GMAIL_LIST_LABELS
-        write_safe:
-          - GMAIL_CREATE_EMAIL_DRAFT
-          - GMAIL_CREATE_LABEL
-          - GMAIL_ADD_LABEL_TO_EMAIL
-          - GMAIL_MOVE_TO_TRASH
-          - GMAIL_UNTRASH_MESSAGE
-        write_destructive:
-          - GMAIL_SEND_EMAIL
-      googlecalendar:
-        read:
-          - GOOGLECALENDAR_FIND_EVENT
-        write_safe:
-          - GOOGLECALENDAR_CREATE_EVENT
-      googledrive:
-        read:
-          - GOOGLEDRIVE_FIND_FILE
-          - GOOGLEDRIVE_DOWNLOAD_FILE
-        write_safe:
-          # Text create (MCP-native) + binary upload (sandbox FileUploadable staging)
-          - GOOGLEDRIVE_CREATE_FILE_FROM_TEXT
-          - GOOGLEDRIVE_UPLOAD_FILE
-          - GOOGLEDRIVE_TRASH_FILE
-          - GOOGLEDRIVE_UNTRASH_FILE
+    provider: google_api        # google_api | m365 | agent
+    mode: direct
+    # provider: agent — Python client is a no-op. A host agent fetches
+    # *reads* with its own connectors, writes a schemas.py envelope, and
+    # passes --input to compute scripts. Keep provider: m365|google_api
+    # for guarded *writes*.
+
 
 # eSign Connector — DocuSeal self-hosted integration.
 # Secrets live in .env (DOCUSEAL_MCP_TOKEN, DOCUSEAL_API_KEY), NOT here.

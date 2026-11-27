@@ -9,18 +9,15 @@ OWN tools — NOT by any Python API client — then passed to compute scripts vi
 Approved read front-ends (any one is fine):
 
 1. Native Gmail / Google Calendar / Microsoft 365 connectors in the agent host
-2. **Hermes (or other host) Composio MCP** already connected — e.g.
-   ``GMAIL_FETCH_EMAILS``, ``OUTLOOK_QUERY_EMAILS``,
-   ``GOOGLECALENDAR_FIND_EVENT``, ``OUTLOOK_GET_CALENDAR_VIEW``,
-   ``GOOGLEDRIVE_FIND_FILE``, ``ONE_DRIVE_SEARCH_ITEMS``
-3. Any other connector that can produce the same record shapes
+2. Any other host connector that can produce the same record shapes
+   (mail, calendar and file records in the shared schema)
 
 Normalize every record to ``shared/scripts/schemas.py`` and hand the envelope
 to daily_briefing / weekly-review / meeting-prep via ``--input``.
 
-**Writes stay on Chief of Staff.** Do not call Composio/Gmail/Outlook *write*
+**Writes stay on Chief of Staff.** Do not call Gmail/Outlook *write*
 tools from the agent for CoS workflows — use ``get_workspace_client(config)``
-(provider ``composio`` / ``composio_microsoft`` / ``m365`` / ``google_api``)
+(provider ``m365`` / ``google_api``)
 so ``@guarded``, the review queue, and workspace audit still apply.
 
 Because there is no Python client to call, every mail_*/calendar_*/files_*
@@ -42,8 +39,8 @@ from workspace_client import WorkspaceClient
 
 _GUIDANCE = (
     "provider 'agent': fetch workspace *reads* with the agent's own tools "
-    "(native Gmail/M365 connectors, or an already-authed Hermes Composio MCP "
-    "session), write a JSON envelope matching shared/scripts/schemas.py, and "
+    "(native Gmail/M365 connectors in the agent host), write a JSON envelope "
+    "matching shared/scripts/schemas.py, and "
     "pass it via --input to the aggregate script. For *writes* (draft/send/"
     "archive/tag/upload), use get_workspace_client(config) so Chief-of-Staff "
     "guardrails and audit still apply — do not call write tools raw from the agent."

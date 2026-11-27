@@ -621,7 +621,7 @@ def _run_write_checks(client: Any, config: Any, checks: dict[str, dict[str, str]
         tag_check = _check_mail_tag_write(client, draft_check, draft_id, subject)
         checks["mail_tag_write"] = tag_check
         # When tags are unsupported the tag check does not trash the draft —
-        # clean it up here so Composio MS (and similar) leave no artefacts.
+        # clean it up here so write probes leave no artefacts.
         if draft_id and tag_check.get("status") == "not_tested" and _supported(client, "mail.trash"):
             cleanup_fail = _trash_verify_draft(client, draft_id, subject)
             if cleanup_fail is not None:

@@ -322,7 +322,7 @@ def cmd_classify_inbox(args: argparse.Namespace) -> int:
         return 1
 
     surface = _tag_surface(client)
-    # in:inbox compiles to Outlook Inbox folder scope on Composio MS / m365.
+    # in:inbox compiles to Outlook Inbox folder scope on m365.
     emails = client.mail_search(query="in:inbox", max_results=args.limit)
     result = do_classify(cfg, emails, limit=args.limit)
     result["tag_surface"] = surface["kind"]

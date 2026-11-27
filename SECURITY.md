@@ -21,7 +21,7 @@ Please include:
 - What an attacker gains — particularly whether it bypasses the approval gate,
   leaks credentials or message content, or writes to a workspace without an
   audit record
-- Any provider (`google_api`, `composio`, `m365`, `agent`) it is specific to
+- Any provider (`google_api`, `m365`, `agent`) it is specific to
 
 Expect an acknowledgement within 7 days and an assessment within 30.
 

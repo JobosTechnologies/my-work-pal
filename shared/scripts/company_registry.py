@@ -514,8 +514,7 @@ LOCAL_ONLY_TYPES = frozenset({"notion.pull", "notion.link", "notion.resolve"})
 
 def configured_identity(config: Any, provider: str | None) -> str:
     """Who the configured client acts as, from config alone: the Google
-    delegate, the M365 client-credentials mailbox, or (Composio) a digest of
-    the routing that selects the connected account. "" when not configured."""
+    delegate or the M365 client-credentials mailbox. "" when not configured."""
     try:
         if provider == "google_api":
             return str(((config.get("google") or {}).get("delegate_email")) or "").strip()
@@ -524,14 +523,6 @@ def configured_identity(config: Any, provider: str | None) -> str:
             if str(m365.get("auth") or "client_credentials") == "device_code":
                 return "device_code"
             return str(m365.get("user_principal") or "").strip()
-        if provider and provider.startswith("composio"):
-            import hashlib
-            import json
-
-            workspace = ((config.get("integrations") or {}).get("workspace") or {})
-            routing = {"user_id": workspace.get("user_id"), "aliases": workspace.get("account_aliases"),
-                       "key_env": (workspace.get("mcp") or {}).get("key_env") if isinstance(workspace.get("mcp"), Mapping) else None}
-            return "composio:" + hashlib.sha256(json.dumps(routing, sort_keys=True, default=str).encode()).hexdigest()[:16]
     except AttributeError:
         return ""
     return ""

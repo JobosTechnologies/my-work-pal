@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Workflow cron lifecycle: hermes-cron install/uninstall, occurrence fire, doctor checks.
+"""Workflow cron lifecycle: install/uninstall, occurrence fire, doctor checks.
 
 One kv document ``workflow_crons`` at ``__root__``. Every write goes through
-``mutate_kv``. Registration shells out to ``hermes cron create`` / ``remove``
-the same way ``install_cron.py`` does.
+``mutate_kv``. Registration writes to the standalone cron jobs store
+(``cron_store`` — ``<data home>/cron/jobs.json``), the same store
+``install_cron.py`` writes.
 """
 from __future__ import annotations
 
 import copy
 import hashlib
 import re
-import subprocess
+
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -190,18 +191,34 @@ def _deliver_target(config: Mapping[str, Any] | None) -> str:
     return channel or "local"
 
 
-def _hermes_cron(cmd: list[str]) -> None:
+def _register_cron_job(schedule_id: str, cron: str, prompt: str, deliver: str) -> None:
+    """Upsert the job in the standalone cron store (idempotent reinstall)."""
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60, check=False)
+        from cron_store import upsert_job
+
+        upsert_job({
+            "id": schedule_id,
+            "name": schedule_id,
+            "schedule": cron,
+            "prompt": prompt,
+            "deliver": deliver,
+            "skills": [],
+            "enabled": True,
+        })
     except Exception as exc:
-        raise WorkflowRunError(f"hermes cron failed: {exc}") from exc
-    if int(getattr(proc, "returncode", 1) or 0) != 0:
-        err = str(getattr(proc, "stderr", "") or getattr(proc, "stdout", "") or "").strip()
-        if len(err) > 400:
-            err = err[:400]
-        verb = cmd[2] if len(cmd) > 2 else "command"
-        detail = f": {err}" if err else f" (exit {proc.returncode})"
-        raise WorkflowRunError(f"hermes cron {verb} failed{detail}")
+        raise WorkflowRunError(f"cron register failed: {exc}") from exc
+
+
+def _deregister_cron_job(schedule_id: str) -> None:
+    """Remove the job from the standalone cron store."""
+    try:
+        from cron_store import remove_job
+
+        removed = remove_job(schedule_id)
+    except Exception as exc:
+        raise WorkflowRunError(f"cron remove failed: {exc}") from exc
+    if not removed:
+        raise WorkflowRunError(f"cron remove failed: no job {schedule_id} in the cron store")
 
 
 def _schedule_timezone(workflow: Mapping[str, Any]) -> str | None:
@@ -288,7 +305,7 @@ def execute_cron_create(
     *,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    """Claim (if still approved) then register the hermes cron job and write the binding."""
+    """Claim (if still approved) then register the cron job and write the binding."""
     action_id = str(action_id or "").strip()
     if not action_id:
         raise WorkflowRunError("action_id: must be a non-empty string")
@@ -495,11 +512,11 @@ def install_workflow_cron(
     now: datetime | None = None,
     session_id: str,
 ) -> dict[str, Any]:
-    """Validate, register via ``hermes cron create``, and upsert the kv binding.
+    """Validate, register in the cron store, and upsert the kv binding.
 
     This is the post-claim executor. ``workflows install`` proposes a
     ``cron.create`` review-queue action and refuses to call this until that
-    action is approved and claimed. Direct callers (tests of the hermes-cron
+    action is approved and claimed. Direct callers (tests of the cron
     primitive, idempotent reinstall of an existing binding) still register.
     """
     if not isinstance(name, str) or not name.strip():
@@ -520,18 +537,7 @@ def install_workflow_cron(
         "This is a scheduled run; do not rely on conversation history. "
         f"Then run: chief_of_staff.py workflows fire --schedule-id {schedule_id}"
     )
-    cmd = [
-        "hermes",
-        "cron",
-        "create",
-        cron,
-        prompt,
-        "--name",
-        schedule_id,
-        "--deliver",
-        _deliver_target(config),
-    ]
-    _hermes_cron(cmd)
+    _register_cron_job(schedule_id, cron, prompt, _deliver_target(config))
 
     def _upsert(data: dict[str, Any]) -> dict[str, Any]:
         bindings = _bindings_map(data)
@@ -571,7 +577,7 @@ def install_workflow_cron(
 
 
 def uninstall_workflow_cron(name: str, config: Mapping[str, Any] | None) -> None:
-    """Remove the kv binding and deregister the hermes cron job."""
+    """Remove the kv binding and deregister the cron job."""
     if not isinstance(name, str) or not name.strip():
         raise WorkflowRunError("workflow_name: must be a non-empty string")
     name = name.strip()
@@ -579,7 +585,7 @@ def uninstall_workflow_cron(name: str, config: Mapping[str, Any] | None) -> None
     if existing is None:
         raise WorkflowRunError(f"no cron binding installed for workflow {name}")
     schedule_id = str(existing.get("schedule_id") or name)
-    _hermes_cron(["hermes", "cron", "remove", schedule_id])
+    _deregister_cron_job(schedule_id)
 
     def _remove(data: dict[str, Any]) -> None:
         bindings = _bindings_map(data)

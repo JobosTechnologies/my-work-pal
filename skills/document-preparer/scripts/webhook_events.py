@@ -209,7 +209,7 @@ def cmd_execute(args: argparse.Namespace) -> int:
 
     # Reject unsupported action types BEFORE mark_executing
     if action_type == "gmail.draft":
-        print("❌ gmail.draft execution not supported via generic executor. Use send_email.py or Composio MCP.", file=sys.stderr)
+        print("❌ gmail.draft execution not supported via generic executor. Use send_email.py.", file=sys.stderr)
         return 1
 
     # ─── Internal (non-workspace) actions ─────────────────────────

@@ -136,11 +136,6 @@ def _sa_credentials(*, service_account_path: str, delegate_email: str, scopes: l
             ) from exc
         credentials = service_account.Credentials.from_service_account_info(info, scopes=scopes)
     else:
-        if plugin_secrets.under_hermes():
-            raise RuntimeError(
-                "under Hermes the service-account key must come from the "
-                "GOOGLE_SERVICE_ACCOUNT_JSON secret (Hermes settings), not a key file"
-            )
         sa_path = Path(service_account_path).expanduser()
         if not sa_path.is_file():
             raise RuntimeError(f"service account JSON not found: {sa_path}")
@@ -626,7 +621,7 @@ class GoogleWorkspaceClient(WorkspaceClient):
         ``google_api.py`` has no draft CLI; drafts are created via the Gmail
         REST API using the configured service-account + ``delegate_email``.
         Surfaces the underlying message id as ``id`` (keeps ``draft_id``),
-        matching the Composio Google contract.
+        matching the shared provider contract.
         """
         google_cfg = (
             self.config.get("google", {})

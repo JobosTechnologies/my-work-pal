@@ -189,7 +189,7 @@ def _message_sender(msg: Any) -> str:
 
 
 def _parse_message_date(msg: Any) -> datetime | None:
-    # ``messageTimestamp`` is what Composio Gmail actually returns (ISO 8601 with
+    # ``messageTimestamp`` is what some Gmail providers return (ISO 8601 with
     # a trailing Z); the Graph/REST spellings are kept for the other providers.
     # A ms-epoch string/number is also accepted. Every returned datetime is made
     # timezone-AWARE (naive → UTC) so aware/naive values never get compared and
@@ -383,7 +383,7 @@ def collect_gmail(config: Any, project_root: Path) -> list[dict[str, Any]] | dic
         if _re.search(r'\{[a-z_]+\}', q):
             continue
         result = client.mail_search(q, max_results=int(query.get("max", 10)))
-        # Microsoft Composio Outlook may drop text-search terms; surface that
+        # Outlook-backed providers may drop text-search terms; surface that
         # honesty so the Gmail section is not reported as a clean success.
         meta = getattr(client, "last_mail_search_meta", None) or {}
         if isinstance(meta, dict) and meta.get("degraded"):
@@ -652,16 +652,11 @@ def wrap_source(name: str, collector: Callable[[Any, Path], list[dict[str, Any]]
         return {"status": "ok", "hash": stable_hash(items), "items": items}
     except Exception as exc:
         err = concise_error(exc)
-        # Hard Composio failures (disconnected toolkit, unknown slug, rate
+        # Hard provider failures (disconnected account, unknown tool, rate
         # limits, auth errors, malformed responses) must not look like an
-        # empty successful read — mark the section unavailable.
-        status = "failed"
-        try:
-            from providers.composio_mcp_workspace import ComposioReadError  # type: ignore
-            if isinstance(exc, ComposioReadError):
-                status = "unavailable"
-        except Exception:
-            pass
+        # empty successful read — mark the section unavailable. Providers
+        # signal those with a typed *ReadError exception.
+        status = "unavailable" if type(exc).__name__.endswith("ReadError") else "failed"
         return {"status": status, "hash": stable_hash({"error": err}), "items": [], "error": err}
 
 

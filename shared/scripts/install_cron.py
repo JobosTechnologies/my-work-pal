@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import subprocess
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -119,11 +118,26 @@ def build_jobs(config_path: str) -> list[dict[str, Any]]:
 
 
 def install_job(job: Mapping[str, Any]) -> dict[str, Any]:
-    cmd = ["hermes", "cron", "create", str(job["schedule"]), str(job["prompt"]), "--name", str(job["name"]), "--deliver", str(job["deliver"])]
-    for skill in job.get("skills", []):
-        cmd.extend(["--skill", str(skill)])
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60, check=False)
-    return {"job": job["name"], "command": cmd, "returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
+    """Write the job to the standalone cron store (cron_store.jobs.json)."""
+    record = {
+        "id": str(job["name"]),
+        "name": str(job["name"]),
+        "schedule": str(job["schedule"]),
+        "prompt": str(job["prompt"]),
+        "skills": [str(s) for s in job.get("skills", [])],
+        "deliver": str(job["deliver"]),
+        "timezone": str(job.get("timezone") or "local"),
+        "enabled": True,
+    }
+    try:
+        from cron_store import upsert_job
+
+        path = upsert_job(record)
+        return {"job": job["name"], "command": [], "returncode": 0,
+                "stdout": f"installed in {path}", "stderr": ""}
+    except Exception as exc:
+        return {"job": job["name"], "command": [], "returncode": 1,
+                "stdout": "", "stderr": str(exc)}
 
 
 def _main(argv: list[str] | None = None) -> int:
@@ -131,7 +145,7 @@ def _main(argv: list[str] | None = None) -> int:
     parser.add_argument("--config", default=str(Path(__file__).resolve().parents[1] / "config" / "company.yaml"), help="Path to company.yaml")
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--dry-run", action="store_true", help="Print jobs without creating them")
-    mode.add_argument("--install", action="store_true", help="Create jobs via hermes cron create")
+    mode.add_argument("--install", action="store_true", help="Write jobs to the standalone cron store")
     parser.add_argument("--json", action="store_true", help="Print JSON")
     args = parser.parse_args(argv)
     jobs = build_jobs(args.config)

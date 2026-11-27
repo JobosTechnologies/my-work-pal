@@ -325,11 +325,6 @@ def _next_steps(provider: str | None) -> list[str]:
     provider = provider or "google_api"
     if provider == "google_api":
         cred = "Set up Google service account/OAuth credentials in company.yaml."
-    elif provider == "composio":
-        cred = (
-            "Connect your Composio workspace: "
-            "python shared/scripts/connect_workspace.py --provider composio --connect gmail"
-        )
     elif provider == "m365":
         cred = (
             "Set your M365 client-secret env var and grant Entra admin consent "
@@ -345,7 +340,7 @@ def _next_steps(provider: str | None) -> list[str]:
     ]
 
 
-WORKSPACE_PROVIDERS = ("google_api", "composio", "m365")
+WORKSPACE_PROVIDERS = ("google_api", "m365")
 M365_AUTH_MODES = ("client_credentials", "device_code")
 
 # Placeholder values written when the operator omits an identifier. They mirror
@@ -353,7 +348,6 @@ M365_AUTH_MODES = ("client_credentials", "device_code")
 # value must be replaced before the provider will authenticate.
 M365_TENANT_PLACEHOLDER = "<directory-tenant-guid>"
 M365_CLIENT_PLACEHOLDER = "<application-client-guid>"
-COMPOSIO_USER_PLACEHOLDER = "<composio-user-id>"
 
 
 def _validate_provider_args(args: argparse.Namespace) -> str | None:
@@ -423,58 +417,6 @@ def _provider_overlay(
 
     # Default / google_api: leave integrations untouched (back-compat).
     if not provider or provider == "google_api":
-        return overlay, required_env, notices, next_commands
-
-    if provider == "composio":
-        user_id = getattr(args, "composio_user_id", None) or COMPOSIO_USER_PLACEHOLDER
-        if user_id == COMPOSIO_USER_PLACEHOLDER:
-            notices.append(
-                f"Wrote placeholder integrations.workspace.user_id={COMPOSIO_USER_PLACEHOLDER}; "
-                "set it to your real Composio user id before connecting."
-            )
-        family = (getattr(args, "composio_family", None) or "google").strip().lower()
-        if family not in ("google", "microsoft"):
-            family = "google"
-        # share_point is required for OneDrive-for-Business files.untrash
-        # (Personal Graph restore does not work on work accounts).
-        toolkits = (
-            ["outlook", "one_drive", "share_point"] if family == "microsoft"
-            else ["gmail", "googlecalendar", "googledrive"]
-        )
-        overlay["integrations"] = {
-            "workspace": {
-                "provider": "composio",
-                "family": family,
-                "user_id": user_id,
-                "toolkits": toolkits,
-                "mcp": {
-                    "endpoint": "https://connect.composio.dev/mcp",
-                    "key_env": "COMPOSIO_MCP_KEY",
-                },
-            }
-        }
-        required_env.append("COMPOSIO_MCP_KEY")
-        if family == "microsoft":
-            notices.append(
-                "Composio family=microsoft: connect Outlook, OneDrive, and SharePoint "
-                "(SharePoint powers OneDrive Business files.untrash via the recycle "
-                "bin). Optionally set integrations.workspace.sharepoint_site_name to "
-                "your OneDrive personal path (e.g. /personal/user_contoso_com). "
-                "Tool slugs are overridable via integrations.workspace.tool_slugs "
-                "(see company.yaml.example)."
-            )
-            next_commands = [
-                "python shared/scripts/doctor.py",
-                "python shared/scripts/connect_workspace.py --provider composio --connect outlook",
-                "python shared/scripts/connect_workspace.py --provider composio --connect one_drive",
-                "python shared/scripts/connect_workspace.py --provider composio --connect share_point",
-                "python shared/scripts/connect_workspace.py --provider composio --verify",
-            ]
-        else:
-            next_commands = [
-                "python shared/scripts/doctor.py",
-                "python shared/scripts/connect_workspace.py --provider composio --verify",
-            ]
         return overlay, required_env, notices, next_commands
 
     if provider == "m365":
@@ -999,12 +941,6 @@ def _main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--m365-secret-env", default="M365_CLIENT_SECRET",
         help="Env var holding the M365 client secret (default: M365_CLIENT_SECRET)",
-    )
-    parser.add_argument("--composio-user-id", help="Composio user id")
-    parser.add_argument(
-        "--composio-family", choices=("google", "microsoft"), default="google",
-        help="Composio toolkit family: google (Gmail/Calendar/Drive) or "
-             "microsoft (Outlook/OneDrive). Default: google.",
     )
     parser.add_argument(
         "--storage", choices=state_sync.STORAGE_MODES, default=None,

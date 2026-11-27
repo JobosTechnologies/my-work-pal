@@ -1,7 +1,7 @@
-"""Hermes-native surface: read-only tools for the agent, a slash command for you.
+"""Agent surface: read-only tools for the agent, a slash command for you.
 
-The plugin's invariant (Observe → Understand → Suggest → Approve → Execute →
-Audit) decides the split:
+The invariant (Observe → Understand → Suggest → Approve → Execute → Audit)
+decides the split:
 
 * **Tools** (the model can call them) only observe: capabilities, the daily
   briefing, the review queue, a preview, the pipeline and spend status. No
@@ -11,13 +11,16 @@ Audit) decides the split:
   ``approve`` and ``dismiss`` run only from the owner's own surfaces (CLI,
   TUI, Desktop, local) or for chat users listed in
   ``approvals.chat_approvers`` (``{"telegram:<user id>": "<name>"}``).
-  Everything else is refused: Hermes passes transport identity, not
+  Everything else is refused: a host passes transport identity, not
   authorization, so a shared chat must never be able to approve.
 
-Both run the plugin's existing scripts as child processes, which stay the
-single source of truth. Secrets are read through Hermes (``plugin_secrets``)
-and passed to the child. Handlers never raise: tools return JSON, the slash
-command returns text.
+Both are plain Python: a host process calls ``tool_handler(name)`` for the
+tools and ``make_command_handler(name)`` for the commands, and calls
+``activate()`` once at startup so this process holds the gateway signing key
+for signed approvals. Everything runs the existing scripts as child
+processes, which stay the single source of truth. Secrets are read through
+``plugin_secrets`` (environment / .env) and passed to the child. Handlers
+never raise: tools return JSON, the slash command returns text.
 """
 
 from __future__ import annotations
@@ -242,7 +245,7 @@ def _text(run: Mapping[str, Any]) -> str:
 # ------------------------------------------------------------ signed decisions
 #
 # The gateway's signing key exists only in this process's memory, created when
-# Hermes loads the plugin (register). Approve/dismiss sign here, in-process;
+# the host process calls activate(). Approve/dismiss sign here, in-process;
 # nothing is handed to a child process, and a copy of this module imported by
 # any other process has no key and cannot decide anything.
 
@@ -294,7 +297,7 @@ def _audit_refusal(config: Any, decision: str, action_id: str, platform: str, so
     try:
         from workspace_audit import audit_workspace_action
 
-        audit_workspace_action(config, "hermes", f"cos.{decision}", "slash", target=action_id, status="blocked",
+        audit_workspace_action(config, "cos", f"cos.{decision}", "slash", target=action_id, status="blocked",
                                extra={"reason": "slash_approval_refused", "detail": detail,
                                       "platform": platform or "(unknown)",
                                       "user_id": str(getattr(source, "user_id", "") or "")})
@@ -306,8 +309,8 @@ def _decide(config: Any, decision: str, action_id: str, approver: str, reason: s
     from state_db import approve_pending_action, dismiss_pending_action, get_pending_action
 
     if _SIGNER is None:
-        return (f"Not {decision}d: approvals are made from your Hermes session with /{command} {decision}. "
-                f"This process has no gateway signer.")
+        return (f"Not {decision}d: approvals are made from an owner session with /{command} {decision}. "
+                f"This process has no gateway signer (the surface was not activated).")
     action = get_pending_action(config, action_id)
     if not action:
         return f"No action {action_id} in the review queue."
@@ -363,12 +366,13 @@ def cos_command(raw_args: str = "", *, platform: str = "", source: Any = None, s
 def make_command_handler(command: str) -> Callable[..., str]:
     def handler(raw_args: str = "", *, session_id: str = "", platform: str = "", source: Any = None) -> str:
         if command != "cos":
-            # Hermes cannot un-register a command, so a renamed assistant's old
-            # command stays wired until restart. It must do nothing but redirect.
+            # A host cannot always un-register a command, so a renamed
+            # assistant's old command may stay wired until restart. It must
+            # do nothing but redirect.
             current = command_names(_load_config())
             if command not in current:
                 return (f"/{command} is retired: the assistant is now /{current[0]}. "
-                        f"/cos always works. Restart Hermes (or reload the plugin) to register "
+                        f"/cos always works. Restart the host to register "
                         f"/{current[0]}.")
         return cos_command(raw_args, platform=platform, source=source, session_id=session_id, command=command)
 
@@ -376,25 +380,18 @@ def make_command_handler(command: str) -> Callable[..., str]:
     return handler
 
 
-# ---------------------------------------------------------------- registration
+# ---------------------------------------------------------------- activation
 
 
-def register(ctx: Any) -> None:
-    """Register tools and slash commands where this Hermes supports them."""
-    register_tool = getattr(ctx, "register_tool", None)
-    if callable(register_tool):
-        for spec in TOOLS:
-            register_tool(name=spec.name, toolset=TOOLSET, schema=spec.schema, handler=tool_handler(spec.name))
-    register_command = getattr(ctx, "register_command", None)
-    if callable(register_command):
-        names = command_names(_load_config())
-        for name in names:
-            register_command(name, make_command_handler(name),
-                             description=f"/{name}: Chief of Staff briefing, review queue and approvals",
-                             args_hint="[review|preview|approve|dismiss|help] [id] [reason]")
-        # This process is now the only one that can approve: enrol every store
-        # it serves for signed approvals (approval_signing).
-        try:
-            activate_gateway_signer(*_registry_configs())
-        except Exception as exc:  # never break plugin loading; doctor reports enrolment
-            print(f"[CoS] approval signing not enabled: {exc}", file=sys.stderr)
+def activate() -> None:
+    """Start this process as the approval surface.
+
+    The calling process becomes the only one that can sign approvals: enrol
+    every store it serves for signed approvals (approval_signing). Tool and
+    command handlers above are plain functions the host wires into its own
+    tool/command registry.
+    """
+    try:
+        activate_gateway_signer(*_registry_configs())
+    except Exception as exc:  # never break host startup; doctor reports enrolment
+        print(f"[CoS] approval signing not enabled: {exc}", file=sys.stderr)

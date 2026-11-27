@@ -45,14 +45,7 @@ import workspace_capabilities as _caps  # noqa: E402
 LEVELS = ("live", "catalog", "mocked", "unverified")
 
 # Providers that are another spelling of the same capability set.
-PROVIDER_ALIASES = {
-    "composio:mcp": "composio",
-    "composio_google": "composio",
-    "composio_microsoft:mcp": "composio_microsoft",
-}
-
-_GMAIL_CATALOG = ("GMAIL_LIST_LABELS / GMAIL_BATCH_MODIFY_MESSAGES slugs from the Composio Gmail "
-                  "toolkit catalog (wired v0.7.9–v0.7.10); not executed live")
+PROVIDER_ALIASES: dict[str, str] = {}
 
 
 def _live(date: str, evidence: str) -> dict[str, str]:
@@ -63,16 +56,6 @@ def _catalog(source: str) -> dict[str, str]:
     return {"level": "catalog", "source": source}
 
 
-_GMAIL_CYCLE = ("Composio Gmail: archive → unarchive → trash → untrash cycle plus label apply "
-                "on real message ids (write_ready: yes, v0.3.14)")
-_OUTLOOK_MOVE = ("Composio Outlook: archive → unarchive → trash → untrash → trash cycle on "
-                 "OUTLOOK_MOVE_MESSAGE, cleaned up (v0.3.10)")
-_OUTLOOK_P3 = "Composio Outlook Phase 3: folders listed, message moved, approval-gated send (v0.3.11)"
-_OUTLOOK_P4 = "Composio Outlook Phase 4: CoS-Verify category created and applied (v0.3.12)"
-_ONEDRIVE = ("Composio OneDrive: throwaway file downloaded, then trashed to the recycle bin "
-             "(v0.3.12)")
-_UPLOAD = ("throwaway text and binary (.pdf) files uploaded with only the MCP key "
-           "(remote-sandbox staging), then trashed (v0.3.16)")
 _CONTACTS = ("google_api.py contacts subcommands against a Google Workspace account; "
              "an install whose script has the write subcommands (v0.7.1)")
 
@@ -84,48 +67,6 @@ EVIDENCE: dict[str, dict[str, dict[str, str]]] = {
         "contacts.create": _live("2026-09-25", _CONTACTS),
         "contacts.update": _live("2026-09-25", _CONTACTS),
         "contacts.delete": _live("2026-09-25", _CONTACTS),
-    },
-    "composio": {
-        "mail.send": _live("2026-07-16", "GMAIL_SEND_EMAIL sent and received (v0.3.13)"),
-        "mail.list_tags": _live("2026-07-16", "GMAIL_LIST_LABELS against live Gmail (v0.3.13)"),
-        "mail.create_tag": _live("2026-07-16", "GMAIL_CREATE_LABEL against live Gmail (v0.3.13)"),
-        "mail.tag": _live("2026-07-16", _GMAIL_CYCLE),
-        "mail.archive": _live("2026-07-16", _GMAIL_CYCLE),
-        "mail.unarchive": _live("2026-07-16", _GMAIL_CYCLE),
-        "mail.trash": _live("2026-07-16", _GMAIL_CYCLE),
-        "mail.untrash": _live("2026-07-16", _GMAIL_CYCLE),
-        "mail.list_folders": _catalog(_GMAIL_CATALOG),
-        "mail.move": _catalog(_GMAIL_CATALOG),
-        # files.download: the 2026-07-16 Drive run recorded trash only, so no live claim.
-        "files.trash": _live("2026-07-16", "GOOGLEDRIVE_TRASH_FILE; file confirmed in Drive Trash (v0.3.15)"),
-        "files.upload": _live("2026-07-17", "Composio Drive: " + _UPLOAD),
-        "files.untrash": _live("2026-07-17", "GOOGLEDRIVE_UNTRASH_FILE: create → trash → untrash, "
-                                             "then FIND confirmed it active (v0.3.17)"),
-    },
-    "composio_microsoft": {
-        "mail.search": _live("2026-07", "OUTLOOK_QUERY_EMAILS against an active Outlook connection "
-                                        "(v0.3.7 acceptance test)"),
-        "calendar.list": _live("2026-07", "OUTLOOK_GET_CALENDAR_VIEW against an active Outlook "
-                                          "connection (v0.3.7 acceptance test)"),
-        "files.search": _catalog("ONE_DRIVE_SEARCH_ITEMS confirmed in the Composio catalog via "
-                                 "COMPOSIO_SEARCH_TOOLS (v0.3.7); no dated live run recorded"),
-        "mail.draft": _live("2026-07-16", "OUTLOOK_CREATE_DRAFT; drafts used by the move cycle (v0.3.10)"),
-        "mail.send": _live("2026-07-16", _OUTLOOK_P3),
-        "mail.list_folders": _live("2026-07-16", _OUTLOOK_P3),
-        "mail.move": _live("2026-07-16", _OUTLOOK_P3),
-        "mail.archive": _live("2026-07-16", _OUTLOOK_MOVE),
-        "mail.unarchive": _live("2026-07-16", _OUTLOOK_MOVE),
-        "mail.trash": _live("2026-07-16", _OUTLOOK_MOVE),
-        "mail.untrash": _live("2026-07-16", _OUTLOOK_MOVE),
-        "mail.list_tags": _live("2026-07-16", _OUTLOOK_P4),
-        "mail.tag": _live("2026-07-16", _OUTLOOK_P4),
-        "mail.create_tag": _live("2026-07-16", _OUTLOOK_P4),
-        "calendar.create": _live("2026-07-16", "OUTLOOK_CALENDAR_CREATE_EVENT on live Outlook (v0.3.9)"),
-        "calendar.update": _live("2026-07-16", "OUTLOOK_UPDATE_CALENDAR_EVENT on live Outlook (v0.3.9)"),
-        "calendar.delete": _live("2026-07-16", "OUTLOOK_DELETE_CALENDAR_EVENT on live Outlook (v0.3.9)"),
-        "files.download": _live("2026-07-16", _ONEDRIVE),
-        "files.trash": _live("2026-07-16", _ONEDRIVE),
-        "files.upload": _live("2026-07-17", "Composio OneDrive: " + _UPLOAD),
     },
     # Native Graph: code-complete, never run against a real Entra tenant.
     "m365": {},

@@ -23,11 +23,11 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
 # Actions that modify external state (Gmail, Calendar, Drive).
-# Legacy gmail.*/drive.* ids are used by the Google/Composio providers;
+# Legacy gmail.*/drive.* ids are used by the Google/Microsoft providers;
 # neutral mail.*/files.* ids are used by newer providers (m365). Semantics mirror
 # each other exactly (e.g. mail.send gates like gmail.send).
 #
-# Both spellings MUST appear here. @guarded methods on Google/Composio emit the
+# Both spellings MUST appear here. @guarded methods on the providers emit the
 # legacy ids (gmail.archive, gmail.trash, drive.trash, …); m365 emits the
 # neutral ids. confirm_action() is default-deny: anything not in READ_ACTIONS
 # or WRITE_ACTIONS is blocked, so omitting a mutation id is a bypass.
@@ -123,7 +123,7 @@ SAFE_WRITE_ACTIONS: frozenset[str] = frozenset({
     "files.upload",
     "files.download",
     # Reversible mutations (see WRITE_ACTIONS note above). Neutral and
-    # legacy spellings are both listed so Google/Composio @guarded methods
+    # legacy spellings are both listed so provider @guarded methods
     # gate the same way as m365.
     "files.trash",      # OneDrive recycle bin — reversible
     "files.untrash",    # restore from trash / recycle bin
@@ -165,9 +165,6 @@ def is_read_action(action: str) -> bool:
 CREDENTIAL_PROVIDERS: frozenset[str] = frozenset({
     "google_api",
     "m365",
-    "composio",
-    "composio_microsoft",
-    "composio_google",
 })
 
 # Set by Claude Code / Cowork in an Anthropic-hosted cloud session.
@@ -466,8 +463,8 @@ class ActionResult:
     Fields:
         success: bool — whether the action completed
         action: str — the action name (e.g. "gmail.draft")
-        provider: str — the provider that executed (e.g. "composio:mcp")
-        tool_slug: str — the Composio tool slug used (if applicable)
+        provider: str — the provider that executed (e.g. "google_api")
+        tool_slug: str — the provider tool/script identifier used (if applicable)
         target: str — a human-readable identifier for the target (email, event title, file name)
         data: dict — raw response data from the provider
         error: str | None — error message if not successful
@@ -529,13 +526,13 @@ def guarded(
         action_id: ActionResult/confirm action id (also the default audit op).
         target_arg: name of the wrapped-method parameter holding the target.
         audit_provider: provider string written to the audit log
-            (e.g. "google_api", "composio").
+            (e.g. "google_api", "m365").
         audit_tool: tool identifier for the audit log
-            ("google_api.py" or a Composio tool slug). May be a callable that
+            ("google_api.py" or a Graph endpoint). May be a callable that
             receives ``self`` for providers whose tool slug depends on runtime
-            config, such as Composio toolkit family.
+            config, such as the account family.
         audit_operation: audit operation string; defaults to ``action_id``.
-        tool_slug: ActionResult.tool_slug value (Composio slug or "").
+        tool_slug: ActionResult.tool_slug value (tool id or "").
         block_error: error message returned when the guardrail blocks the action.
     """
 

@@ -183,7 +183,7 @@ class WorkspaceClient(abc.ABC):
 
     @property
     def provider_name(self) -> str:
-        """Return the provider identifier (e.g. 'google_api', 'composio')."""
+        """Return the provider identifier (e.g. 'google_api', 'm365')."""
         return getattr(self, "_provider_name", "unknown")
 
     def capabilities(self) -> dict[str, bool]:
@@ -276,7 +276,6 @@ class WorkspaceClient(abc.ABC):
 # a class or a factory function; both are called with (config).
 _PROVIDER_REGISTRY: dict[str, tuple[str, str]] = {
     "google_api": ("providers.google_workspace", "GoogleWorkspaceClient"),
-    "composio": ("providers.composio_mcp_workspace", "get_composio_client"),
     # Pre-registered; modules authored by later phases.
     "m365": ("providers.m365_graph", "M365GraphClient"),
     "agent": ("providers.agent_workspace", "AgentWorkspaceClient"),
@@ -366,7 +365,7 @@ def _main() -> int:
             healthy = client.health_check()
             print(json.dumps({"provider": client.__class__.__name__, "healthy": healthy}))
         except NotImplementedError as exc:
-            print(json.dumps({"provider": "composio", "healthy": False, "error": str(exc)}))
+            print(json.dumps({"provider": "unknown", "healthy": False, "error": str(exc)}))
         except Exception as exc:
             print(json.dumps({"provider": "unknown", "healthy": False, "error": str(exc)}))
     return 0

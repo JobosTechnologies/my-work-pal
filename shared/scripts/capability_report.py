@@ -87,7 +87,6 @@ def build_capability_report(config: Any, version: str = "") -> dict[str, Any]:
         import workspace_capabilities as _caps
         from doctor_base import _capability_provider_for_workspace
 
-        # composio splits into composio_google / composio_microsoft by mode.
         cap_provider = _capability_provider_for_workspace(workspace)
         for action in _caps.all_actions():
             if _caps.supports(cap_provider, action):

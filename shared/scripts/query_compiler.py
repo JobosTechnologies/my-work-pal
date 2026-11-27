@@ -727,7 +727,7 @@ def _compile_m365(
 
     # Graph forbids combining $filter + $search on /messages -> fold to KQL.
     # Folder scope is out-of-band, so it is preserved across the fold.
-    # Callers that cannot issue $search (e.g. Composio OUTLOOK_QUERY_EMAILS)
+    # Callers that cannot issue $search (e.g. a slug-based Outlook caller)
     # pass fold_filter_search=False so both components remain visible and the
     # filter-only subset can be preferred.
     if fold_filter_search and filter_parts and search_parts:

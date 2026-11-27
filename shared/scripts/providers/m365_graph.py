@@ -86,7 +86,7 @@ Immutable ids:
   belt-and-braces measure, :meth:`mail_archive`/:meth:`mail_trash` also return a
   ``restore_target`` key (the post-move id) in their ActionResult data.
 
-Provider differences vs Google/Composio:
+Provider differences vs Google:
   * Drafts ARE supported (POST /messages).
   * Sending is destructive and env-gated identically to gmail.send.
   * There is no calendar "uncancel" — Graph cannot reinstate a cancelled event.

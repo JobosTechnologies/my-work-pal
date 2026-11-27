@@ -16,7 +16,7 @@ Suggestion shape:
   "reason": "Client asked for follow-up documents",
   "confidence": 0.82,
   "risk": "low",
-  "provider": "composio",
+  "provider": "google_api",
   "requires_approval": true,
   "auto_execute": false,  # always false
   "state": "suggested"

@@ -66,185 +66,6 @@ CAPABILITIES: dict[str, dict[str, bool]] = {
         "contacts.update": True,
         "contacts.delete": True,
     },
-    # Google Composio family — v0.3.13/v0.3.14.
-    # Execution-verified 2026-07-16 (live Gmail): mail.list_tags
-    # (GMAIL_LIST_LABELS), mail.create_tag (GMAIL_CREATE_LABEL), mail.send
-    # (GMAIL_SEND_EMAIL sent AND received), and — after the v0.3.14 hardening
-    # (draft-id→message-id fix + r- draft-id reject + Label_… name resolve) —
-    # mail.tag / mail.archive / mail.unarchive / mail.trash / mail.untrash: a
-    # clean archive→unarchive→trash→untrash cycle plus tag apply ran green on
-    # real hex message ids (write_ready: yes, no id-shape errors).
-    # mail.list_folders → GMAIL_LIST_LABELS (label records; same data as list_tags).
-    # mail.move → GMAIL_BATCH_MODIFY_MESSAGES (label id destination).
-    # calendar.cancel → GOOGLECALENDAR_UPDATE_EVENT status=cancelled (soft, reversible).
-    # files.trash: execution-verified 2026-07-16 — a throwaway file created via
-    # GOOGLEDRIVE_CREATE_FILE_FROM_TEXT (MCP-native text create, no key) was
-    # trashed via GOOGLEDRIVE_TRASH_FILE and confirmed in Drive Trash.
-    # files.download has no recorded live run (verification_matrix: mocked).
-    # files.upload: execution-verified 2026-07-17 for BOTH text and binary with
-    # ONLY the MCP key. Text → GOOGLEDRIVE_CREATE_FILE_FROM_TEXT. Binary
-    # (.pdf/.docx) → GOOGLEDRIVE_UPLOAD_FILE with a FileUploadable staged over
-    # MCP via the remote sandbox (COMPOSIO_REMOTE_BASH_TOOL +
-    # COMPOSIO_REMOTE_WORKBENCH.upload_local_file) — no COMPOSIO_API_KEY. A
-    # throwaway .pdf uploaded to Drive and was trashed (confirmed in Trash).
-    "composio": {
-        "mail.search": True,
-        "mail.draft": True,
-        "mail.send": True,          # GMAIL_SEND_EMAIL — execution-verified 2026-07-16 (destructive / approval-gated)
-        "mail.list_folders": True,  # GMAIL_LIST_LABELS (labels as destinations; ≈ list_tags)
-        "mail.move": True,          # GMAIL_BATCH_MODIFY_MESSAGES → label id
-        "mail.archive": True,       # GMAIL_ADD_LABEL_TO_EMAIL remove INBOX — execution-verified 2026-07-16 (v0.3.14 hardened path)
-        "mail.unarchive": True,     # add INBOX — execution-verified 2026-07-16
-        "mail.trash": True,         # GMAIL_MOVE_TO_TRASH — execution-verified 2026-07-16
-        "mail.untrash": True,       # GMAIL_UNTRASH_MESSAGE — execution-verified 2026-07-16
-        "mail.list_tags": True,     # GMAIL_LIST_LABELS — execution-verified 2026-07-16
-        "mail.tag": True,           # GMAIL_ADD_LABEL_TO_EMAIL (Label_ id) — execution-verified 2026-07-16
-        "mail.create_tag": True,    # GMAIL_CREATE_LABEL — execution-verified 2026-07-16
-        "calendar.list": True,
-        "calendar.create": True,
-        "calendar.update": True,
-        "calendar.cancel": True,    # GOOGLECALENDAR_UPDATE_EVENT status=cancelled (soft)
-        "calendar.uncancel": True,  # GOOGLECALENDAR_UPDATE_EVENT status=confirmed (restore)
-        "calendar.delete": True,    # GOOGLECALENDAR_DELETE_EVENT — destructive / approval-gated
-        "files.search": True,
-        "files.upload": True,       # TEXT via CREATE_FILE_FROM_TEXT; BINARY via GOOGLEDRIVE_UPLOAD_FILE + MCP sandbox staging — execution-verified 2026-07-17 (no COMPOSIO_API_KEY)
-        "files.download": True,
-        "files.trash": True,        # GOOGLEDRIVE_TRASH_FILE — execution-verified 2026-07-16 (create-from-text → trash → confirmed in Trash)
-        "files.untrash": True,      # GOOGLEDRIVE_UNTRASH_FILE — execution-verified 2026-07-17 (create → trash → untrash → FIND confirmed active, trashed=0)
-        # Contacts — NOT wired: Gmail toolkit read/search tools are not CRUD.
-        # Connect googlecontacts in Composio (People API OAuth, separate from Gmail).
-        # False until slugs mapped and live-verified (tripwire convention).
-        "contacts.list": False,
-        "contacts.create": False,
-        "contacts.update": False,
-        "contacts.delete": False,
-    },
-    "composio:mcp": {
-        "mail.search": True,
-        "mail.draft": True,
-        "mail.send": True,          # execution-verified 2026-07-16
-        "mail.list_folders": True,  # GMAIL_LIST_LABELS (labels as destinations; ≈ list_tags)
-        "mail.move": True,          # GMAIL_BATCH_MODIFY_MESSAGES → label id
-        # v0.3.14 hardened (draft-id→message-id, reject r- ids, resolve Label_…)
-        # and execution-verified 2026-07-16 (write_ready: yes on real message ids).
-        "mail.archive": True,
-        "mail.unarchive": True,
-        "mail.trash": True,
-        "mail.untrash": True,
-        "mail.list_tags": True,     # execution-verified 2026-07-16
-        "mail.tag": True,
-        "mail.create_tag": True,    # execution-verified 2026-07-16
-        "calendar.list": True,
-        "calendar.create": True,
-        "calendar.update": True,
-        "calendar.cancel": True,    # GOOGLECALENDAR_UPDATE_EVENT status=cancelled (soft)
-        "calendar.uncancel": True,  # GOOGLECALENDAR_UPDATE_EVENT status=confirmed (restore)
-        "calendar.delete": True,    # GOOGLECALENDAR_DELETE_EVENT — destructive / approval-gated
-        "files.search": True,
-        "files.upload": True,       # TEXT via CREATE_FILE_FROM_TEXT; BINARY via GOOGLEDRIVE_UPLOAD_FILE + MCP sandbox staging — execution-verified 2026-07-17 (no COMPOSIO_API_KEY)
-        "files.download": True,
-        "files.trash": True,        # GOOGLEDRIVE_TRASH_FILE — execution-verified 2026-07-16
-        "files.untrash": True,      # GOOGLEDRIVE_UNTRASH_FILE — execution-verified 2026-07-17 (create → trash → untrash → FIND confirmed active, trashed=0)
-        # Contacts — NOT wired (see composio above); False until live-verified.
-        "contacts.list": False,
-        "contacts.create": False,
-        "contacts.update": False,
-        "contacts.delete": False,
-    },
-    # Composio Microsoft family (Outlook mail/calendar + OneDrive via managed
-    # OAuth) — providers.composio_mcp_workspace with family=microsoft. The client
-    # reports provider_name "composio_microsoft:mcp".
-    #
-    # v0.3.9 live-verified: reads, mail.draft, mail.trash (deleteditems),
-    # calendar create/update/delete.
-    # v0.3.10 live-verified 2026-07-16: mail.archive/unarchive/untrash — the
-    # full archive→unarchive→trash→untrash→trash cycle executed on the shared
-    # OUTLOOK_MOVE_MESSAGE slug and cleaned up.
-    # v0.3.11 Phase 3 — execution-verified 2026-07-16 (live Outlook):
-    # mail.list_folders, mail.move, mail.send (approval-gated).
-    # v0.3.12 Phase 4 — execution-verified 2026-07-16 (live Outlook + OneDrive):
-    # mail.list_tags/tag/create_tag (OUTLOOK_GET_MASTER_CATEGORIES /
-    # CREATE_USER_MASTER_CATEGORY / UPDATE_EMAIL — CoS-Verify created + applied),
-    # and files.download/trash (ONE_DRIVE_DOWNLOAD_FILE → ONE_DRIVE_DELETE_ITEM).
-    # files.upload: execution-verified 2026-07-17 for text AND binary with ONLY the
-    # MCP key. Text → ONE_DRIVE_ONEDRIVE_CREATE_TEXT_FILE. Binary (.pdf/.docx) →
-    # ONE_DRIVE_ONEDRIVE_UPLOAD_FILE with a FileUploadable staged over MCP via the
-    # remote sandbox (no COMPOSIO_API_KEY) — a throwaway .pdf uploaded and trashed.
-    # calendar.cancel stays False.
-    "composio_microsoft": {
-        "mail.search": True,        # OUTLOOK_QUERY_EMAILS — execution-verified (read)
-        "mail.draft": True,         # OUTLOOK_CREATE_DRAFT — execution-verified 2026-07-16
-        "mail.send": True,          # OUTLOOK_SEND_EMAIL — execution-verified 2026-07-16 (approval-gated / destructive)
-        "mail.list_folders": True,  # OUTLOOK_LIST_MAIL_FOLDERS — execution-verified 2026-07-16
-        "mail.move": True,          # OUTLOOK_MOVE_MESSAGE → folder id / well-known — execution-verified 2026-07-16
-        "mail.archive": True,       # OUTLOOK_MOVE_MESSAGE → archive — execution-verified 2026-07-16
-        "mail.unarchive": True,     # OUTLOOK_MOVE_MESSAGE → inbox — execution-verified 2026-07-16
-        "mail.trash": True,         # OUTLOOK_MOVE_MESSAGE → deleteditems — execution-verified 2026-07-16
-        "mail.untrash": True,       # OUTLOOK_MOVE_MESSAGE → inbox — execution-verified 2026-07-16
-        "mail.list_tags": True,     # OUTLOOK_GET_MASTER_CATEGORIES — execution-verified 2026-07-16
-        "mail.tag": True,           # OUTLOOK_UPDATE_EMAIL categories append — execution-verified 2026-07-16
-        "mail.create_tag": True,    # OUTLOOK_CREATE_USER_MASTER_CATEGORY — execution-verified 2026-07-16
-        "calendar.list": True,      # OUTLOOK_GET_CALENDAR_VIEW — execution-verified (read)
-        "calendar.create": True,    # OUTLOOK_CALENDAR_CREATE_EVENT — execution-verified 2026-07-16
-        "calendar.update": True,    # OUTLOOK_UPDATE_CALENDAR_EVENT — execution-verified 2026-07-16
-        "calendar.cancel": False,
-        "calendar.delete": True,    # OUTLOOK_DELETE_CALENDAR_EVENT — execution-verified 2026-07-16
-        "files.search": True,       # ONE_DRIVE_SEARCH_ITEMS — execution-verified (read)
-        "files.upload": True,       # TEXT via CREATE_TEXT_FILE; BINARY via ONE_DRIVE_ONEDRIVE_UPLOAD_FILE + MCP sandbox staging — execution-verified 2026-07-17 (no COMPOSIO_API_KEY)
-        "files.download": True,     # ONE_DRIVE_DOWNLOAD_FILE (+ s3url fetch) — execution-verified 2026-07-16
-        "files.trash": True,        # ONE_DRIVE_DELETE_ITEM → recycle bin — execution-verified 2026-07-16
-        # files.untrash (v0.3.20): method wired both ways —
-        #   Personal → ONE_DRIVE_RESTORE_DRIVE_ITEM
-        #   Business → SHARE_POINT_RESTORE_RECYCLE_BIN_ITEM with site_name scoped
-        #   to the OneDrive personal path (/personal/…) from webUrl or
-        #   integrations.workspace.sharepoint_site_name.
-        # Kept False — NOT execution-verified. A 2026-07-17 live probe on a real
-        # OneDrive-for-Business account WITH the SharePoint toolkit connected and
-        # a correctly derived /personal/… site_name still failed end-to-end: the
-        # ONE_DRIVE_DELETE_ITEM'd file never appeared in
-        # SHARE_POINT_LIST_RECYCLE_BIN_ITEMS (0 items after 45s), so files_trash
-        # captured no restore_target and files_untrash returned success=False
-        # (Personal Graph "Operation not supported", recycle-bin fallback empty).
-        # The OneDrive recycle bin and the queried SharePoint recycle bin do not
-        # line up. Flip only after a live run actually restores a file.
-        "files.untrash": False,
-        # Contacts — not wired on the microsoft family (no contacts slugs mapped).
-        "contacts.list": False,
-        "contacts.create": False,
-        "contacts.update": False,
-        "contacts.delete": False,
-    },
-    # Alias: composio_microsoft:mcp is the same capability set as composio_microsoft.
-    # Kept as a separate key so callers using provider_name + ":mcp" resolve correctly.
-    "composio_microsoft:mcp": {
-        "mail.search": True,
-        "mail.draft": True,
-        "mail.send": True,
-        "mail.list_folders": True,
-        "mail.move": True,
-        "mail.archive": True,
-        "mail.unarchive": True,
-        "mail.trash": True,
-        "mail.untrash": True,
-        "mail.list_tags": True,
-        "mail.tag": True,
-        "mail.create_tag": True,
-        "calendar.list": True,
-        "calendar.create": True,
-        "calendar.update": True,
-        "calendar.cancel": False,
-        "calendar.delete": True,
-        "files.search": True,
-        "files.upload": True,       # TEXT via CREATE_TEXT_FILE; BINARY via ONE_DRIVE_ONEDRIVE_UPLOAD_FILE + MCP sandbox staging — execution-verified 2026-07-17 (no COMPOSIO_API_KEY)
-        "files.download": True,
-        "files.trash": True,
-        "files.untrash": False,     # wired (Personal Graph + Business SharePoint recycle bin) but NOT live-verified — see composio_microsoft note
-        # Contacts — not wired on the microsoft family (no contacts slugs mapped).
-        "contacts.list": False,
-        "contacts.create": False,
-        "contacts.update": False,
-        "contacts.delete": False,
-    },
     # Microsoft 365 (Graph) provider — providers.m365_graph.M365GraphClient.
     # Every neutral action below is implemented over Microsoft Graph REST v1.0.
     # mail.send is destructive (env-gated identically to gmail.send).
@@ -327,14 +148,6 @@ WORKFLOW_REQUIREMENTS: dict[str, list[str]] = {
     "weekly.collect": ["calendar.list", "gmail.search", "drive.search"],
 }
 
-# files.upload over Composio MCP (both families): TEXT files use the MCP-native
-# create-from-text tools (GOOGLEDRIVE_CREATE_FILE_FROM_TEXT /
-# ONE_DRIVE_ONEDRIVE_CREATE_TEXT_FILE). BINARY files (.pdf/.docx) stage a
-# FileUploadable over MCP via the remote sandbox (COMPOSIO_REMOTE_BASH_TOOL +
-# COMPOSIO_REMOTE_WORKBENCH.upload_local_file → s3key), so no COMPOSIO_API_KEY is
-# required (execution-verified 2026-07-17). files.upload is therefore True and
-# carries no UNSUPPORTED_REASONS entry.
-
 # Human-readable reasons for why a specific provider doesn't support an action.
 # Keyed by legacy action ids (callers pass legacy ids today).
 _M365_UNTRASH_REASON = (
@@ -343,26 +156,9 @@ _M365_UNTRASH_REASON = (
     "a host-scoped SPO token). Flip m365 only after a live restore."
 )
 
-_COMPOSIO_MS_UNTRASH_REASON = (
-    "OneDrive restore is wired for composio_microsoft (Personal ONE_DRIVE_RESTORE_DRIVE_ITEM; "
-    "Business SHARE_POINT_RESTORE_RECYCLE_BIN_ITEM scoped to the /personal/… site) but is NOT "
-    "live-verified: a 2026-07-17 live probe on a real OneDrive-for-Business account, with the "
-    "SharePoint toolkit connected and a correct /personal/… site_name, still failed — the "
-    "ONE_DRIVE_DELETE_ITEM'd file never surfaced in SHARE_POINT_LIST_RECYCLE_BIN_ITEMS, so no "
-    "restore_target was captured and untrash returned success=False. files.untrash stays "
-    "unsupported until a live run actually restores a file"
-)
-
 _CONTACTS_REASONS = {
-    "composio": "full contacts CRUD is not available via the Gmail toolkit "
-                "(GMAIL_GET_CONTACTS / GMAIL_SEARCH_PEOPLE are read/search, not CRUD); "
-                "connect the googlecontacts toolkit in the Composio dashboard (People API "
-                "OAuth scopes, separate from Gmail), then re-run capabilities — or use "
-                "provider google_api for contacts",
     "m365": "Contacts are not implemented on the Microsoft Graph client — use provider "
             "google_api for contacts",
-    "composio_microsoft": "Contacts are not wired on the Composio Microsoft family (no "
-                          "contacts tools mapped) — use provider google_api for contacts",
     "agent": "The agent provider has no contacts reads or writes wired — use provider "
              "google_api for contacts, or manage them with your own connector",
 }
@@ -372,31 +168,26 @@ UNSUPPORTED_REASONS: dict[tuple[str, str], str] = {
                                  "recreate-event workflow is not implemented, so cancel cannot "
                                  "be honoured behind the reversible soft-delete promise — "
                                  "cancel the event via Outlook, or delete and recreate it",
-    ("composio_microsoft", "files.untrash"): _COMPOSIO_MS_UNTRASH_REASON,
-    ("composio_microsoft", "drive.untrash"): _COMPOSIO_MS_UNTRASH_REASON,
-    ("composio_microsoft:mcp", "files.untrash"): _COMPOSIO_MS_UNTRASH_REASON,
-    ("composio_microsoft:mcp", "drive.untrash"): _COMPOSIO_MS_UNTRASH_REASON,
     ("m365", "files.untrash"): _M365_UNTRASH_REASON,
     ("m365", "drive.untrash"): _M365_UNTRASH_REASON,
     **{(provider, f"contacts.{op}"): _CONTACTS_REASONS[provider.split(":")[0]]
-       for provider in ("composio", "composio:mcp", "composio_microsoft",
-                        "composio_microsoft:mcp", "m365", "agent")
+       for provider in ("m365", "agent")
        for op in ("list", "create", "update", "delete")},
 }
 
 # Provider recommendations for each action/workflow.
 PROVIDER_RECOMMENDATIONS: dict[str, str] = {
-    "gmail.draft": "google_api, composio, or composio_microsoft",
-    "document.handoff": "google_api, composio, or composio_microsoft",
-    "gmail.send": "google_api, composio, or composio_microsoft",
-    "calendar.create": "google_api or composio",
-    "calendar.update": "google_api or composio",
-    "drive.upload": "google_api, composio, or composio_microsoft",
-    "drive.download": "google_api, composio, or composio_microsoft",
-    "drive.untrash": "google_api or composio",
-    "files.untrash": "google_api or composio",
-    "meeting.gather": "google_api or composio",
-    "weekly.collect": "google_api or composio",
+    "gmail.draft": "google_api or m365",
+    "document.handoff": "google_api or m365",
+    "gmail.send": "google_api or m365",
+    "calendar.create": "google_api or m365",
+    "calendar.update": "google_api or m365",
+    "drive.upload": "google_api or m365",
+    "drive.download": "google_api or m365",
+    "drive.untrash": "google_api or m365",
+    "files.untrash": "google_api or m365",
+    "meeting.gather": "google_api or m365",
+    "weekly.collect": "google_api or m365",
     "contacts.list": "google_api",
     "contacts.create": "google_api",
     "contacts.update": "google_api",
@@ -459,7 +250,7 @@ def recommend_provider_for(action: str) -> str:
     if action in PROVIDER_RECOMMENDATIONS:
         return PROVIDER_RECOMMENDATIONS[action]
     # Fall back to the neutral spelling if a legacy key was passed.
-    return PROVIDER_RECOMMENDATIONS.get(_resolve_action(action), "google_api or composio")
+    return PROVIDER_RECOMMENDATIONS.get(_resolve_action(action), "google_api or m365")
 
 
 def get_unsupported_reason(provider: str, action: str) -> str:

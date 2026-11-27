@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interactive onboarding wizard for the Chief-of-Staff Hermes plugin.
+"""Interactive onboarding wizard for the Chief-of-Staff core.
 
 Run interactively:
     python3 onboard.py
@@ -282,37 +282,31 @@ def default_currency_for_jurisdiction(jurisdiction: str) -> str:
 
 def check_prerequisites() -> dict[str, Any]:
     print("\n== Prerequisite checks ==")
-    hermes_path = shutil.which("hermes")
-    hermes: dict[str, Any] = {"installed": False, "path": hermes_path, "version": None}
-    if hermes_path:
-        try:
-            result = subprocess.run([hermes_path, "--version"], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=20)
-            output = result.stdout.strip()
-            hermes.update({"installed": result.returncode == 0, "version": output, "returncode": result.returncode})
-            if result.returncode == 0:
-                print(f"✓ Hermes installed: {output}")
-            else:
-                print(f"⚠ Hermes command returned {result.returncode}: {output}")
-        except (OSError, subprocess.SubprocessError) as exc:
-            hermes.update({"error": str(exc)})
-            print(f"⚠ Could not run hermes --version: {exc}")
-    else:
-        print("⚠ Hermes command not found on PATH. Install Hermes before using scheduled workflows.")
+    import sys as _sys
 
-    # Locate google-workspace skill via configurable Hermes home
+    version = ".".join(str(part) for part in _sys.version_info[:3])
+    runtime_ok = _sys.version_info >= (3, 11)
+    runtime: dict[str, Any] = {"python": version, "ok": runtime_ok}
+    if runtime_ok:
+        print(f"✓ Python {version} (>= 3.11)")
+    else:
+        print(f"⚠ Python {version} is too old — the core needs Python 3.11+.")
+
+    # Locate the google-workspace skill (provides google_api.py) via the
+    # configurable data home.
     try:
         from config_loader import get_hermes_home
-        _hermes_home = get_hermes_home()
+        _data_home = get_hermes_home()
     except Exception:
-        _hermes_home = Path.home() / ".hermes"
-    google_skill_path = _hermes_home / "skills" / "productivity" / "google-workspace"
+        _data_home = Path.home() / ".hermes"
+    google_skill_path = _data_home / "skills" / "productivity" / "google-workspace"
     google_workspace = {"installed": google_skill_path.exists(), "path": str(google_skill_path)}
     if google_skill_path.exists():
         print(f"✓ google-workspace skill found: {google_skill_path}")
     else:
         print(f"⚠ google-workspace skill not found at {google_skill_path}")
         print("  Install it before running Gmail/Calendar/Drive workflows.")
-    return {"hermes": hermes, "google_workspace_skill": google_workspace}
+    return {"runtime": runtime, "google_workspace_skill": google_workspace}
 
 
 def make_default_config(company_name: str = "", jurisdiction: str = "SG", business_type: str = DEFAULT_BUSINESS_TYPE) -> dict[str, Any]:

@@ -259,7 +259,7 @@ _RESERVED_KEYS = {"timestamp", "level", "run_id", "command", "component", "event
 
 _BEARER_RE = re.compile(r"(?i)\bbearer\s+\S+")
 _JWT_RE = re.compile(r"\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+")
-# Secret-looking names, prefixed or not (COMPOSIO_API_KEY, M365_CLIENT_SECRET,
+# Secret-looking names, prefixed or not (M365_CLIENT_SECRET,
 # *_TOKEN, GOOGLE_SERVICE_ACCOUNT_JSON...). Paging/sync tokens and booleans are
 # diagnostics, not secrets, and are left alone (see _secret_kv).
 _SECRET_NAME = (r"[A-Za-z0-9_-]*?(?:client[_-]?secret|password|passwd|api[_-]?key|apikey|access[_-]?token"

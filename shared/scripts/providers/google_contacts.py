@@ -87,10 +87,7 @@ def _rest_unavailable(config: Any) -> str | None:
     sa_path, delegate = service_account_settings(config)
     if not sa_path:
         return ("no service-account key: set the GOOGLE_SERVICE_ACCOUNT_JSON secret "
-                "(or google.service_account_path outside Hermes)")
-    if sa_path != plugin_secrets.SA_SECRET_SOURCE and plugin_secrets.under_hermes():
-        return ("under Hermes the service-account key must come from the "
-                "GOOGLE_SERVICE_ACCOUNT_JSON secret, not a key file")
+                "(or google.service_account_path)")
     if sa_path != plugin_secrets.SA_SECRET_SOURCE and not Path(sa_path).expanduser().is_file():
         return f"the service account file {sa_path} does not exist"
     if not delegate:

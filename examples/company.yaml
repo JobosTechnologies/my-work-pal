@@ -47,7 +47,7 @@ backup:
 
 integrations:
   workspace:
-    provider: google_api        # google_api | composio
+    provider: google_api        # google_api | m365 | agent
     mode: direct                # direct | sdk | mcp
     user_id: null
     account_aliases:

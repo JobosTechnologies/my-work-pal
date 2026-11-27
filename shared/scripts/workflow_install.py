@@ -580,13 +580,13 @@ def add_workflows_parser(sub: argparse._SubParsersAction) -> None:
     _add_summary(wf_fire)
     wf_fire.set_defaults(func=cmd_fire)
 
-    wf_install_cron = wf_sub.add_parser("install-cron", help="Install or re-install the hermes cron job")
+    wf_install_cron = wf_sub.add_parser("install-cron", help="Install or re-install the cron job")
     wf_install_cron.add_argument("name", help="Workflow name (workflows/<name>.yaml)")
     wf_install_cron.add_argument("--session-id", default="", help="Session id for the cron job")
     _add_summary(wf_install_cron)
     wf_install_cron.set_defaults(func=cmd_install_cron)
 
-    wf_uninstall_cron = wf_sub.add_parser("uninstall-cron", help="Remove the hermes cron binding")
+    wf_uninstall_cron = wf_sub.add_parser("uninstall-cron", help="Remove the cron binding")
     wf_uninstall_cron.add_argument("name", help="Workflow name to uninstall-cron")
     _add_summary(wf_uninstall_cron)
     wf_uninstall_cron.set_defaults(func=cmd_uninstall_cron)

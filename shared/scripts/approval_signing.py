@@ -1,8 +1,8 @@
-"""Signed approvals: decisions only the human-facing Hermes surface can make.
+"""Signed approvals: decisions only the human-facing gateway surface can make.
 
-Under Hermes the agent has a terminal. Without this module it could run
-``review_queue.py approve`` and approve its own proposal. So when the Hermes
-gateway loads the plugin it creates an Ed25519 key **in memory** (never on
+The agent has a terminal. Without this module it could run
+``review_queue.py approve`` and approve its own proposal. So when the
+gateway surface starts (cos_surface.activate) it creates an Ed25519 key **in memory** (never on
 disk, never in any environment) and *enrols* each store it serves: the public
 key is recorded in the store, and from then on the store is enforced:
 
@@ -19,8 +19,8 @@ sign. Stores that never enrol (standalone CLI, Claude Code) are unchanged.
 Limits, stated plainly (docs/SECURITY_MODEL.md): this stops an agent from
 approving through the plugin's own commands. It is not a sandbox: an agent
 with an unrestricted shell as the same OS user can still tamper with the
-store, or call a provider API directly with credentials it can reach. Use a
-Hermes isolated terminal backend for that boundary.
+store, or call a provider API directly with credentials it can reach. Use an
+isolated terminal backend for that boundary.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from datetime import datetime, timezone
 from typing import Any, Mapping
 
 STORE = "approval_signing"
-MARKER = "approval-signing.json"   # under <Hermes home>/chief-of-staff/
+MARKER = "approval-signing.json"   # under <data home>/chief-of-staff/
 DECISIONS = frozenset({"approve", "dismiss"})
 MAX_KEYS = 50
 
@@ -80,7 +80,7 @@ def _write_marker(now: str) -> None:
 
 
 class GatewaySigner:
-    """An in-memory Ed25519 key held by the Hermes gateway process."""
+    """An in-memory Ed25519 key held by the gateway process."""
 
     def __init__(self, private_key: Any) -> None:
         from cryptography.hazmat.primitives import serialization
@@ -105,7 +105,7 @@ class GatewaySigner:
         def apply(data: dict[str, Any]) -> None:
             keys = data.setdefault("keys", {})
             keys.setdefault(self.key_id, {"public": _b64(self.public_raw), "registered_at": now,
-                                          "registered_by": "hermes-gateway"})
+                                          "registered_by": "gateway"})
             if len(keys) > MAX_KEYS:   # keep the newest keys; older approvals must be re-approved
                 for old in sorted(keys, key=lambda k: keys[k]["registered_at"])[:-MAX_KEYS]:
                     keys.pop(old)
@@ -121,7 +121,7 @@ class GatewaySigner:
 
             from workspace_audit import audit_workspace_action
 
-            audit_workspace_action(config, "hermes", "approval_signing.enrol", "gateway", target=self.key_id,
+            audit_workspace_action(config, "gateway", "approval_signing.enrol", "gateway", target=self.key_id,
                                    extra={"pid": os.getpid(), "argv": [str(a) for a in sys.argv[:3]]})
         except Exception:
             pass

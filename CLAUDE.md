@@ -114,7 +114,7 @@ OneDrive), normalize the records to the shapes in
 ```
 
 The same `--input` path works for weekly-review and meeting-prep. Under the
-other providers (`google_api`, `composio`, `m365`) the Python client fetches and
+other providers (`google_api`, `m365`) the Python client fetches and
 you do not need to supply anything.
 
 ## Executing an approved action
@@ -204,8 +204,7 @@ need no envelope.
 If `CLAUDE_CODE_REMOTE_SESSION_ID` is set you are on an ephemeral cloud VM.
 Two things change, and `capabilities` will tell you both:
 
-- **Credential-holding providers are refused** (`google_api`, `m365`,
-  `composio`). Environment variables there are stored in plain text and are
+- **Credential-holding providers are refused** (`google_api`, `m365`). Environment variables there are stored in plain text and are
   readable by anyone who uses the environment, and there is no secrets store.
   Use the `agent` provider — it holds no credentials because your connectors do
   the I/O. Do not ask the user to paste a client secret into the environment.

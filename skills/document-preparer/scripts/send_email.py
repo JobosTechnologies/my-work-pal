@@ -15,7 +15,7 @@ Commands:
 
 Core rule: execute requires an approved action ID. No direct send.
 Works with any provider that supports ``mail.send`` (google_api, m365,
-composio_microsoft). The approve step is the clear user approval gate;
+m365). The approve step is the clear user approval gate;
 execute then sets the destructive guardrail envs for that call only.
 """
 from __future__ import annotations

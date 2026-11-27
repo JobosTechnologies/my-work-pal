@@ -370,7 +370,7 @@ def _check_google_workspace(fix: bool, data: dict[str, Any] | None, config_path:
 
 
 def _check_google_auth(fix: bool, data: dict[str, Any] | None, config_path: Path) -> CheckResult:
-    # Check if active provider is composio — skip Google auth check if so
+    # Skip the Google auth check when another provider is active
     integrations = (data or {}).get("integrations", {}) if isinstance((data or {}).get("integrations"), dict) else {}
     workspace = integrations.get("workspace", {}) if isinstance(integrations, dict) else {}
     provider = workspace.get("provider", "google_api")
@@ -501,7 +501,7 @@ def _check_assistant_name(fix: bool, data: dict[str, Any] | None, config_path: P
             return CheckResult(
                 "assistant_name",
                 "warn",
-                f"{exc}. Until it is fixed, the Hermes slash command is /cos only. "
+                f"{exc}. Until it is fixed, the slash command is /cos only. "
                 "Rename with bootstrap --assistant-name <Name>.",
             )
 
@@ -510,7 +510,7 @@ def _check_assistant_name(fix: bool, data: dict[str, Any] | None, config_path: P
             "assistant_name",
             "pass",
             f"assistant.name='{name}' (generic default — a distinctive name "
-            "improves routing away from Hermes generic email/calendar handlers)",
+            "improves routing away from generic email/calendar handlers)",
         )
 
     return CheckResult("assistant_name", "pass", f"assistant.name='{name}'")
@@ -693,27 +693,19 @@ def _normalise_docuseal_domain(raw: str) -> str:
 
 def _check_cron(fix: bool, data: dict[str, Any] | None, config_path: Path) -> CheckResult:
     try:
-        # The cron CLI resolves its jobs store via get_hermes_home(); pass the
-        # same resolution we use everywhere else, or a nonstandard-HERMES_HOME
-        # install (e.g. HERMES_HOME=~/hermes while ~/.hermes also exists)
-        # probes the wrong store and reports phantom missing references.
-        env = dict(os.environ)
-        home = str(get_hermes_home())
-        env.pop("CHIEF_OF_STAFF_HERMES_HOME", None)
-        env["HERMES_HOME"] = home
-        proc = subprocess.run(
-            ["hermes", "cron", "list", "--all"], capture_output=True, text=True, timeout=15, check=False, env=env
-        )
+        from cron_store import load_jobs
+
+        jobs = load_jobs()
     except Exception as exc:
         return CheckResult("cron_jobs", "warn", f"cannot inspect cron jobs: {exc}")
-    out = proc.stdout + proc.stderr
-    missing = [name for name in ("daily-briefing", "deadline-tracker") if name not in out]
+    if not jobs:
+        return CheckResult("cron_jobs", "warn", "no cron jobs installed (run install_cron.py --install)")
+    blob = json.dumps(jobs)
+    missing = [name for name in ("daily-briefing", "deadline-tracker") if name not in blob]
     return CheckResult("cron_jobs", "pass" if not missing else "warn", f"missing references: {missing}" if missing else "daily briefing and deadline tracker configured")
-
-
 def _check_compile(fix: bool, data: dict[str, Any] | None, config_path: Path) -> CheckResult:
     failures: list[str] = []
-    for path in list((PLUGIN_ROOT / "shared" / "scripts").glob("*.py")) + list((PLUGIN_ROOT / "skills").glob("*/scripts/*.py")) + [PLUGIN_ROOT / "__init__.py", PLUGIN_ROOT / "hooks.py"]:
+    for path in list((PLUGIN_ROOT / "shared" / "scripts").glob("*.py")) + list((PLUGIN_ROOT / "skills").glob("*/scripts/*.py")) + [PLUGIN_ROOT / "__init__.py"]:
         if path.exists():
             try:
                 py_compile.compile(str(path), doraise=True)
@@ -928,7 +920,7 @@ def _check_workspace_provider(fix: bool, data: dict[str, Any] | None, config_pat
     provider = workspace.get("provider", "google_api")
     mode = workspace.get("mode", "direct")
 
-    # Report capabilities — mode-aware for composio
+    # Report capabilities for the configured provider
     try:
         sys.path.insert(0, str(PLUGIN_ROOT / "shared" / "scripts"))
         from workspace_capabilities import get_capabilities, unsupported_actions
@@ -948,99 +940,7 @@ def _check_workspace_provider(fix: bool, data: dict[str, Any] | None, config_pat
 
 
 def _capability_provider_for_workspace(workspace: Mapping[str, Any]) -> str:
-    provider = str(workspace.get("provider", "google_api") or "google_api")
-    # MCP is the only Composio mode (SDK/direct was removed); a missing mode means mcp.
-    mode = str(workspace.get("mode", "mcp") or "mcp")
-    if provider != "composio":
-        return provider
-    try:
-        from composio_family import _resolve_composio_family
-        family = _resolve_composio_family(workspace, warn=False)
-    except Exception:
-        family = "google"
-    if family == "microsoft":
-        return f"composio_microsoft:{mode}"
-    return f"composio:{mode}"
-
-
-def _check_composio(fix: bool, data: dict[str, Any] | None, config_path: Path) -> CheckResult:
-    """Check Composio configuration — MCP mode only."""
-    integrations = (data or {}).get("integrations", {}) if isinstance((data or {}).get("integrations"), dict) else {}
-    workspace = integrations.get("workspace", {}) if isinstance(integrations, dict) else {}
-    provider = workspace.get("provider", "google_api")
-
-    if provider != "composio":
-        return CheckResult("composio", "pass", "skipped: provider is not composio")
-
-    mode = workspace.get("mode", "mcp")
-
-    if mode == "sdk":
-        return CheckResult("composio", "fail",
-                           "SDK mode removed in v0.1.9 — change to mode: mcp and set COMPOSIO_MCP_KEY")
-
-    details: list[str] = [f"mode: {mode}"]
-    all_pass = True
-
-    # MCP mode: check COMPOSIO_MCP_KEY
-    mcp_cfg = workspace.get("mcp", {})
-    key_env = mcp_cfg.get("key_env", "COMPOSIO_MCP_KEY")
-    if plugin_secrets.get(key_env):
-        details.append(f"{key_env}: set")
-    else:
-        details.append(f"{key_env}: NOT set")
-        all_pass = False
-
-    endpoint = mcp_cfg.get("endpoint", "https://connect.composio.dev/mcp")
-    details.append(f"endpoint: {endpoint}")
-
-    # Check MCP initialize
-    try:
-        sys.path.insert(0, str(PLUGIN_ROOT / "shared" / "scripts"))
-        from mcp_client import MCPClient
-        client = MCPClient(endpoint=endpoint, key_env=key_env)
-        client.initialize()
-        details.append("mcp_initialize: pass")
-        meta_tools = [t.get("name", "?") for t in client.list_tools()]
-        details.append(f"meta_tools: {', '.join(meta_tools)}")
-    except Exception as exc:
-        details.append(f"mcp_initialize: failed — {exc}")
-        all_pass = False
-
-    # Check connections via metadata. The toolkit set is family-aware so a
-    # Composio Microsoft connection reports outlook/one_drive, not the Google
-    # toolkits (family: explicit config wins, else inferred from the toolkit list).
-    family = workspace.get("family")
-    toolkits_cfg = workspace.get("toolkits", [])
-    if str(family or "").strip().lower() == "microsoft" or (
-        isinstance(toolkits_cfg, list)
-        and any(str(t).strip().lower() in ("outlook", "one_drive", "onedrive") for t in toolkits_cfg)
-    ):
-        expected_toolkits = ("outlook", "one_drive")
-        connect_hint_tk = "outlook"
-    else:
-        expected_toolkits = ("gmail", "googlecalendar", "googledrive")
-        connect_hint_tk = "gmail"
-    try:
-        from providers.composio_mcp_workspace import load_session_meta
-        meta = load_session_meta(data or {})
-        if meta and meta.get("connections"):
-            for tk in expected_toolkits:
-                status = meta.get("connections", {}).get(tk, {}).get("status", "unknown")
-                if status == "connected":
-                    details.append(f"{tk}: connected")
-                else:
-                    details.append(f"{tk}: {status}")
-        else:
-            details.append(
-                f"no session metadata — run: connect_workspace.py "
-                f"--provider composio --connect {connect_hint_tk}"
-            )
-    except Exception as exc:
-        details.append(f"connection check failed: {exc}")
-
-    return CheckResult("composio", "pass" if all_pass else "warn", "; ".join(details))
-
-
+    return str(workspace.get("provider", "google_api") or "google_api")
 def _check_m365(fix: bool, data: dict[str, Any] | None, config_path: Path) -> CheckResult:
     """Check Microsoft 365 (Graph) configuration when provider is m365."""
     integrations = (data or {}).get("integrations", {}) if isinstance((data or {}).get("integrations"), dict) else {}
@@ -1371,10 +1271,9 @@ DENY_RULES_HINT = ("approvals.deny: ['*review_queue.py*approve*', '*review_queue
 
 
 def _check_approval_signing(fix: bool, data: dict[str, Any] | None, config_path: Path) -> CheckResult:
-    """Signed approvals (approval_signing): enforced once the Hermes gateway enrols the store."""
+    """Signed approvals (approval_signing): enforced once the store is enrolled."""
     try:
         from approval_signing import STORE, signing_state
-        from plugin_secrets import under_hermes
         from state_db import _open_db
 
         config = load_config(config_path, quiet=True)
@@ -1387,14 +1286,8 @@ def _check_approval_signing(fix: bool, data: dict[str, Any] | None, config_path:
     if is_enforced:
         return CheckResult(
             "approval_signing", "pass",
-            f"signed approvals enforced ({len(keys)} gateway key(s)): only /<name> or /cos in a Hermes "
-            f"session can approve or dismiss. Belt and braces: add to Hermes config.yaml {DENY_RULES_HINT}",
-        )
-    if under_hermes():
-        return CheckResult(
-            "approval_signing", "warn",
-            "running under Hermes but this store is not enrolled for signed approvals: load the plugin in "
-            "the Hermes gateway (it enrols on load) and approve with /cos approve <id>",
+            f"signed approvals enforced ({len(keys)} gateway key(s)): only /<name> or /cos on an "
+            f"owner surface can approve or dismiss. Belt and braces: add to your host config {DENY_RULES_HINT}",
         )
     return CheckResult(
         "approval_signing", "pass",
@@ -1489,7 +1382,7 @@ CHECKS: list[Callable[[bool, dict[str, Any] | None, Path], CheckResult]] = [
     _check_signature, _check_wiki, _check_docuseal, _check_cron, _check_cron_prompts, _check_compile,
     _check_packages, _check_audit_runs,
     _check_briefing_archive,
-    _check_workspace_provider, _check_composio, _check_m365,
+    _check_workspace_provider, _check_m365,
     _check_webhook_config, _check_google_contacts, _check_state_files, _check_orphaned_executing,
     _check_capability_report, _check_smoke_test,
     _check_cron_skill_files, _check_stale_run, _check_unhonored_advancement, _check_workflow_crons_doc,
@@ -1497,7 +1390,7 @@ CHECKS: list[Callable[[bool, dict[str, Any] | None, Path], CheckResult]] = [
 
 
 def run_checks(fix: bool = False, config: str | None = None) -> list[CheckResult]:
-    # Auto-load plugin-root .env so the env-secret checks (composio/m365) see
+    # Auto-load plugin-root .env so the env-secret checks (m365) see
     # secrets documented for .env. Shell env always wins; values never logged.
     load_dotenv_file()
     config_path = _config_path(config)

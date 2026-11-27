@@ -22,7 +22,7 @@ Document Preparer creates business documents from `.docx` templates and turns ex
 .venv/bin/python skills/document-preparer/scripts/document_actions.py draft-email --to client@test.com --subject "NDA for review" --body "Please find attached..."
 ```
 
-`WorkspaceClient` routes to Google API or Composio MCP. Upload and draft creation use guardrails and return `ActionResult` objects.
+`WorkspaceClient` routes to the configured workspace provider (Google API or Microsoft 365). Upload and draft creation use guardrails and return `ActionResult` objects.
 
 The bundled `doc_utils.py` script provides token extraction, template filling, template creation, and registry updates.
 

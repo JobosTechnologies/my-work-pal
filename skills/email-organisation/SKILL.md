@@ -27,8 +27,7 @@ Works with workspace providers that advertise `mail.list_tags`:
 | Provider | Tag surface |
 |---|---|
 | `google_api` | Gmail labels |
-| `composio` (family google) | Gmail labels via `GMAIL_LIST_LABELS` |
-| `composio` (family microsoft) / `m365` | Outlook categories (tag id = displayName) |
+| `m365` | Outlook categories (tag id = displayName) |
 
 ## When to Use
 
@@ -62,9 +61,9 @@ repeated, unmet need (with approval).
 .venv/bin/python skills/email-organisation/scripts/email_organisation.py validate-policy
 ```
 
-### Composio Microsoft (Outlook categories) — Phase 4
+### Microsoft 365 (Outlook categories)
 
-With `integrations.workspace.family: microsoft` (and Outlook connected):
+With the `m365` provider configured (and Outlook connected):
 
 ```bash
 .venv/bin/python skills/email-organisation/scripts/email_organisation.py \
@@ -74,7 +73,7 @@ With `integrations.workspace.family: microsoft` (and Outlook connected):
   --config shared/config/company.yaml --summary propose-policy
 ```
 
-`inspect-labels` uses `OUTLOOK_GET_MASTER_CATEGORIES` via `mail_list_tags`.
+`inspect-labels` lists master categories via `mail_list_tags`.
 Summary titles the run **Outlook Category Inspection** and sets
 `tag_surface: outlook_categories`. Categories appear as user tags
 (id = displayName).
@@ -82,9 +81,7 @@ Summary titles the run **Outlook Category Inspection** and sets
 Classify / suggest / prepare use the same review-queue path as Gmail; suggestion
 titles say “Apply category …” and `payload.label_id` is the category
 displayName. Execute uses guarded `mail_tag` / `mail_archive` /
-`mail_create_tag` on the CoS workspace client — not raw Hermes MCP write tools.
-
-See `docs/EMAIL_ORG_LIVE_TEST_CHECKLIST.md` § Composio Microsoft.
+`mail_create_tag` on the CoS workspace client — not raw host write tools.
 
 ## Safety (onboarding)
 
@@ -100,9 +97,9 @@ See `docs/EMAIL_ORG_LIVE_TEST_CHECKLIST.md` § Composio Microsoft.
 - `.email_organisation_policy.json` — approved policy
 - `shared/scripts/email_label_policy.py` — reusable policy logic
 
-## Writes vs Hermes Composio MCP
+## Writes vs host connectors
 
-If Hermes already has Composio MCP connected, you may **inspect** via CoS
+If the host already has a mail connector connected, you may **inspect** via CoS
 (`inspect-labels` above) or by calling read tools and summarizing — but
 **organise writes** (tag / archive / create label) must go through
 `email_organisation.py prepare` → `review_queue.py approve/execute` so

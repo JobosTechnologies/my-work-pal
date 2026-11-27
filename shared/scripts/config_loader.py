@@ -11,7 +11,7 @@ YAML subset parser that supports the structures used by the example config.
 Environment secrets (``.env``)
 ------------------------------
 The onboarding docs instruct operators to place secrets such as
-``COMPOSIO_MCP_KEY``, ``M365_CLIENT_SECRET`` and ``DOCUSEAL_*`` in a ``.env``
+``M365_CLIENT_SECRET`` and ``DOCUSEAL_*`` in a ``.env``
 file at the plugin root. :func:`load_dotenv_file` implements a tiny, dependency
 -free ``KEY=VALUE`` parser for that file and is invoked automatically from
 :func:`load_config` (config discovery) so every entrypoint that loads
@@ -230,7 +230,7 @@ def load_dotenv_file(path: str | os.PathLike[str] | None = None) -> dict[str, st
     """Populate ``os.environ`` from a ``.env`` file (no python-dotenv dependency).
 
     Minimal ``KEY=VALUE`` parser used so that secrets documented for the
-    plugin's ``.env`` (e.g. ``COMPOSIO_MCP_KEY``, ``M365_CLIENT_SECRET``,
+    plugin's ``.env`` (e.g. ``M365_CLIENT_SECRET``,
     ``DOCUSEAL_*``) become available to every entrypoint that loads
     configuration, matching the onboarding docs.
 
@@ -254,13 +254,6 @@ def load_dotenv_file(path: str | os.PathLike[str] | None = None) -> dict[str, st
     keys that were already present in the environment).
     """
     applied: dict[str, str] = {}
-    # Hermes catalog rule 11: under Hermes, secrets come only through Hermes
-    # (config_schema secrets -> get_secret / register_session_env). Never read
-    # a .env file there, the plugin's own included.
-    from plugin_secrets import under_hermes
-
-    if under_hermes():
-        return applied
     env_path = Path(path).expanduser() if path is not None else (_PLUGIN_ROOT / ".env")
     try:
         if not env_path.is_file():
