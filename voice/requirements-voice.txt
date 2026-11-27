@@ -1,0 +1,16 @@
+# Voice-layer extras (WP2). Kept separate from the foundation's
+# requirements.txt on purpose: the foundation suite must not depend on
+# telephony or speech packages. Install into the environment that runs
+# the worker or the local speech check.
+livekit-agents==1.9.0
+livekit-plugins-silero>=1.9,<2
+# NOTE: livekit-plugins-turn-detector is intentionally NOT listed. Its
+# models sit under the separate LiveKit Model License (see README.md);
+# adopting it is a recorded licensing decision, not a default.
+faster-whisper>=1.2,<2
+kokoro>=0.9,<1
+soundfile>=0.12,<1
+# faster-whisper 1.2 passes metadata_errors to av.open(); PyAV 15+
+# removed that argument, so an unpinned install resolves to a broken
+# pairing (found during the WP2 local speech exercise). Pin below it.
+av>=12,<15
