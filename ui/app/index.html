@@ -263,7 +263,7 @@
 .mwp-composer textarea::placeholder { color: var(--ink-subtle); }
 .mwp-composer__bar { display: flex; align-items: center; gap: var(--space-2); margin-left: calc(var(--space-2) * -1); }
 
-.mwp-chip { display: inline-flex; align-items: center; gap: var(--space-2); height: 40px; padding: 0 var(--space-4); border: 1px solid var(--border-strong); border-radius: var(--radius-pill); background: var(--surface-200); color: var(--ink); font: 600 14px/20px var(--font-sans); cursor: pointer; text-decoration: none; }
+.mwp-chip { display: inline-flex; align-items: center; gap: var(--space-2); height: 40px; padding: 0 var(--space-4); border: 1px solid var(--border-strong); border-radius: var(--radius-pill); background: var(--surface-200); color: var(--ink); font: 600 14px/20px var(--font-sans); white-space: nowrap; min-width: 0; cursor: pointer; text-decoration: none; }
 .mwp-chip .mwp-icon { width: 18px; height: 18px; color: var(--amber-text); }
 .mwp-chip:hover { border-color: var(--amber-border); }
 .mwp-chip--call { background: var(--teal-surface); border-color: var(--teal-border); }
@@ -490,8 +490,9 @@ a { color: inherit; }
   .greeting .mwp-eyebrow { justify-content: flex-start; }
   .greeting .mwp-display { font-size: 32px; line-height: 38px; }
   .greeting .mwp-lede { margin-left: 0; }
-  .chips { justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; padding-bottom: var(--space-2); scrollbar-width: none; }
-  .chips::-webkit-scrollbar { display: none; }
+  .chips { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); justify-content: stretch; }
+  .chips .mwp-chip { min-width: 0; justify-content: center; gap: 5px; padding: 0 6px; font-size: 13px; overflow: hidden; }
+  .chips .mwp-chip .mwp-icon { width: 15px; height: 15px; }
   .mwp-statusbar { justify-content: flex-start; border-radius: var(--radius-lg); }
   .home-grid { grid-template-columns: 1fr; }
   .right { display: none; border-left: 0; padding: var(--space-6) var(--space-4); overflow-y: auto; }
@@ -520,6 +521,13 @@ a { color: inherit; }
     background: var(--amber-500); color: var(--on-amber); font: 700 10px/12px var(--font-sans);
   }
   .tab .tab-badge.off { display: none; }
+}
+
+/* ---- Below 430px: quick-action chips go icon-only ---- */
+@media (max-width: 430px) {
+  .chips { display: flex; flex-wrap: nowrap; justify-content: center; gap: var(--space-5); }
+  .chips .mwp-chip { flex: none; width: 48px; height: 48px; padding: 0; justify-content: center; gap: 0; font-size: 0; }
+  .chips .mwp-chip .mwp-icon { width: 20px; height: 20px; }
 }
 
 /* ---- Settings view: calm sections, one primary action (Done) ---- */
@@ -834,19 +842,19 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
         </form>
 
         <div class="chips">
-          <a class="mwp-chip mwp-chip--call" href="tel:+12402316158">
+          <a class="mwp-chip mwp-chip--call" href="tel:+12402316158" aria-label="Call WorkPal">
             <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
             Call WorkPal
           </a>
-          <button class="mwp-chip" type="button" data-fill="Plan my day around the Acme sync and the Beta scoping call.">
+          <button class="mwp-chip" type="button" aria-label="Plan today" data-fill="Plan my day around the Acme sync and the Beta scoping call.">
             <svg class="mwp-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
             Plan today
           </button>
-          <button class="mwp-chip" type="button" data-fill="Draft a follow-up to John Tan at Acme Corp about the proposal and the NDA.">
+          <button class="mwp-chip" type="button" aria-label="Draft a follow-up" data-fill="Draft a follow-up to John Tan at Acme Corp about the proposal and the NDA.">
             <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             Draft a follow-up
           </button>
-          <button class="mwp-chip" type="button" data-fill="Check my inbox and flag anything urgent.">
+          <button class="mwp-chip" type="button" aria-label="Check my inbox" data-fill="Check my inbox and flag anything urgent.">
             <svg class="mwp-icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
             Check my inbox
           </button>
