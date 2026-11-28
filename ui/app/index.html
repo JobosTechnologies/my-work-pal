@@ -13,10 +13,11 @@
   // Stored pref is one of dark / light / midnight / sand / contrast / system.
   // data-theme always carries the resolved theme; data-theme-pref the choice.
   (function(){
-    var pref = 'dark';
-    try {
-      pref = localStorage.getItem('mwp-theme') || localStorage.getItem('mwp-theme-mode') || 'dark';
-    } catch (e) {}
+    var pref = null;
+    try { pref = localStorage.getItem('mwp-theme') || localStorage.getItem('mwp-theme-mode'); } catch (e) {}
+    if (!pref) { try { pref = sessionStorage.getItem('mwp-theme'); } catch (e) {} }
+    if (!pref) { var m = document.cookie.match(/(?:^|;\s*)mwp-theme=([a-z]+)/); if (m) pref = m[1]; }
+    if (!pref) pref = 'dark';
     if (['dark','light','midnight','sand','contrast','system'].indexOf(pref) < 0) pref = 'dark';
     var resolved = pref === 'system'
       ? ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light')
@@ -1267,9 +1268,19 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
 <script>
   // Theme wiring — deliberately isolated from the main demo script above,
   // so nothing else on the page can break it. State lives in memory first
-  // and is applied immediately; localStorage is only a bonus for next time
+  // and is applied immediately; storage is only a bonus for next time
   // and is never required for a switch to take effect. (A pure-CSS layer
   // keyed on the same radios covers viewers where scripts do not run.)
+  //
+  // WP16: the tap itself is the signal. A click handler on each option
+  // card applies the theme from memory the moment the card is tapped,
+  // so a switch never depends on the viewer's native label activation,
+  // on the radio's change event reaching us, or on :has() re-evaluating
+  // after a dynamic :checked change — the three fragile links that left
+  // v5 dark in the in-app preview after Settings -> Light -> Done.
+  // The change listener stays as a second, idempotent path (keyboard,
+  // assistive tech). One state, one apply(): navigation, Done, and
+  // storage reads can never revert a choice.
   (function(){
     var root = document.documentElement;
     var THEMES = ['dark', 'light', 'midnight', 'sand', 'contrast', 'system'];
@@ -1285,12 +1296,29 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
         r.checked = (r.value === pref);
       });
     }
+    function save(){
+      // Write-only bonus, to every store the viewer allows. Never read
+      // back during the session: memory is the source of truth.
+      try { localStorage.setItem('mwp-theme', pref); } catch (e) {}
+      try { sessionStorage.setItem('mwp-theme', pref); } catch (e) {}
+      try { document.cookie = 'mwp-theme=' + pref + '; path=/; max-age=31536000; SameSite=Lax'; } catch (e) {}
+    }
+    function choose(value){
+      if (THEMES.indexOf(value) < 0) return;
+      pref = value;
+      apply(); // restyle first, from memory — visible inside Settings too
+      save();  // then save, if allowed
+    }
     document.querySelectorAll('[data-theme-picker] input[type="radio"]').forEach(function(r){
       r.addEventListener('change', function(){
         if (!r.checked) return;
-        pref = r.value;
-        apply(); // restyle first, from memory
-        try { localStorage.setItem('mwp-theme', pref); } catch (e) {} // then save, if allowed
+        choose(r.value);
+      });
+    });
+    document.querySelectorAll('[data-theme-picker] .mwp-theme-option').forEach(function(card){
+      card.addEventListener('click', function(){
+        var r = card.querySelector('input[type="radio"]');
+        if (r) choose(r.value);
       });
     });
     if (mq && mq.addEventListener) mq.addEventListener('change', function(){ if (pref === 'system') apply(); });

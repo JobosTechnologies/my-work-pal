@@ -1,4 +1,41 @@
-# My Work Pal — Owner App (v5: working themes, Settings, calmer)
+# My Work Pal — Owner App (v6: tap-driven themes)
+
+The owner app for My Work Pal, built on the My Work Pal design
+system in `ui/design-system/` (the system Ibrahim uploaded on
+Nov 28, 2026). v6 keeps everything in v5 — Settings view, calm
+pass, Lindy lines, tokens verbatim — and fixes the one path v5
+still depended on the viewer for: the theme tap itself.
+
+## What changed in v6
+
+- **The tap is the signal.** Ibrahim tested v5 in the in-app file
+  preview: Settings rendered, he selected Light, clicked Done,
+  and the theme stayed dark. Isolation testing showed why: with
+  the radio's `change` event undelivered, v5's JS path never ran
+  (`data-theme` stayed dark), leaving the restyle to the CSS
+  `:has()` layer alone — and in his viewer that layer did not
+  restyle on the dynamic `:checked` change either. Both layers
+  hung off the same fragile link, the radio's checked state.
+  v6 adds a click handler on each theme option card: the tap
+  applies the theme from in-memory state immediately (visible
+  inside Settings, before Done), the `change` listener remains
+  as an idempotent second path, and the `:has()` layer still
+  covers no-script viewers. One state, one `apply()`: Done,
+  navigation, and storage reads can never revert a choice.
+- **Persistence is write-only bonus, to more stores.** A choice
+  is saved to localStorage, sessionStorage, and a cookie (each
+  write guarded); the pre-paint init reads them in that order.
+  Nothing in the session ever reads storage back over memory.
+- **Proof.** A sequence test now covers the exact reported path
+  (open Settings, tap the Light card, assert `--surface-100` is
+  `#f7f5ef`, click Done, assert again) under normal storage,
+  throwing storage, and swallowed `change` events, plus a layer
+  isolation test: with the `:has()` block stripped and `change`
+  swallowed, the card tap alone flips the theme and it survives
+  Done. The v5 suites (all themes both layers, demo behaviours)
+  still pass unchanged.
+
+## Earlier: v5
 
 The owner app for My Work Pal, built on the My Work Pal design
 system in `ui/design-system/` (the system Ibrahim uploaded on
