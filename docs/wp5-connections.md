@@ -134,3 +134,8 @@ ours. Precisely:
   directory `0o700`), refresh, and the Google-side revocation call for
   disconnect. The owner steps that remain are in
   `docs/wp6-google-sitting.md`.
+- (WP13, built) provider execution in `oauth_user` mode — the
+  `google_api` provider's REST calls (Gmail draft, Calendar create +
+  invite, Drive untrash, People token) build credentials from the
+  stored owner token, refreshing it when expired; `service_account`
+  configs keep the delegation route unchanged.

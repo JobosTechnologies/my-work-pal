@@ -33,10 +33,12 @@ What lives here:
   (revoke endpoint + local file removal), which WP5 left as a live-stage
   step.
 
-Known remaining gap (does not need the owner): the ``google_api``
-provider still executes through the service-account route; teaching it to
-act with these user credentials is provider work for wiring day, after
-the first real token exists to verify against.
+Provider execution: since WP13 the ``google_api`` provider
+(providers/google_workspace.py) acts with these user credentials when a
+connections config declares ``auth.mode: oauth_user`` — its REST calls
+build credentials via :func:`load_user_credentials`, refreshing an
+expired token through :func:`refresh_token_record` first. Configs that
+declare ``service_account`` keep the delegation route unchanged.
 
 Usage:
     python google_oauth.py --config connections.yaml url
@@ -192,6 +194,11 @@ def _token_record(payload: Mapping[str, Any], *, existing: Mapping[str, Any] | N
     expires_in = payload.get("expires_in")
     if isinstance(expires_in, (int, float)) and expires_in > 0:
         record["expires_at"] = now + int(expires_in)
+    elif isinstance(payload.get("expires_at"), (int, float)):
+        # Already a token record (refresh_token_record re-wraps the
+        # record _post_token built): carry its expiry instead of
+        # resurrecting the expired one from `existing`.
+        record["expires_at"] = int(payload["expires_at"])
     record["obtained_at"] = now
     return record
 

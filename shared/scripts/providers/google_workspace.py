@@ -4,6 +4,13 @@
 Wraps the existing google_api.py subprocess calls behind a clean interface.
 Write methods use guardrails (confirm_action) and return ActionResult dicts.
 All write actions are audited via workspace_audit.
+
+Two auth routes, chosen by the connections config (see _config_auth_mode):
+``service_account`` (domain-wide delegation, the legacy Workspace route)
+and ``oauth_user`` (the owner signed in once; the provider's REST calls
+act with the owner's stored token from the WP6 connect flow in
+google_oauth.py). The google_api.py subprocess calls keep their own auth
+inside that script either way.
 """
 from __future__ import annotations
 
@@ -13,6 +20,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import uuid
 import warnings
 from datetime import datetime
@@ -148,27 +156,93 @@ def _sa_credentials(*, service_account_path: str, delegate_email: str, scopes: l
     return credentials
 
 
-def _gmail_draft_via_service_account(
+# ── Auth route + owner (oauth_user) credentials ───────────────────────
+# The REST helpers below build credentials one of two ways, per the
+# connections config: a delegated service account (above), or the owner's
+# stored OAuth token via google_oauth (the WP6 connect flow). The token
+# endpoint transport is injectable (http_post) so tests never touch the
+# network; google_oauth's errors name env vars, fields and the token
+# path only — never a credential value.
+
+_TOKEN_REFRESH_SKEW_SECONDS = 60
+
+
+def _config_auth_mode(config: Any) -> str:
+    """Resolve the Google auth route: 'oauth_user' or 'service_account'.
+
+    Mirrors connection_health.resolve_auth_mode so the health report and
+    the provider never disagree: an explicit ``google.auth.mode`` wins;
+    a configured service-account path means the legacy Workspace route;
+    otherwise the owner default is ``oauth_user``.
+    """
+    google = config.get("google", {}) if isinstance(config, Mapping) else {}
+    if not isinstance(google, Mapping):
+        google = {}
+    auth = google.get("auth", {})
+    if not isinstance(auth, Mapping):
+        auth = {}
+    mode = str(auth.get("mode") or "").strip().lower()
+    if mode in {"oauth_user", "service_account"}:
+        return mode
+    if str(google.get("service_account_path") or "").strip():
+        return "service_account"
+    return "oauth_user"
+
+
+def _user_credentials(
+    config: Any,
     *,
-    service_account_path: str,
-    delegate_email: str,
+    environ: Mapping[str, str] | None = None,
+    http_post: Any = None,
+):
+    """Build owner credentials from the stored Google token.
+
+    The token record is the one google_oauth stored at the one-time
+    sign-in. An expired access token is refreshed via
+    google_oauth.refresh_token_record and the refreshed record is saved
+    back before credentials are built, so the stored file never lags the
+    live grant. Raises google_oauth.GoogleOAuthConfigError with a clear,
+    value-free message when the owner has not connected yet.
+    """
+    import google_oauth
+
+    settings = google_oauth.load_oauth_settings(config, environ)
+    if settings.token_path is None:
+        raise google_oauth.GoogleOAuthConfigError(
+            "Config declares no google.auth.oauth.token_path — nowhere to "
+            "read the owner's stored Google token."
+        )
+    record = google_oauth.load_token(settings.token_path)
+    if not record:
+        raise google_oauth.GoogleOAuthConfigError(
+            "No stored Google token — the owner has not completed the "
+            "one-time sign-in yet (docs/wp6-google-sitting.md)."
+        )
+    expires_at = record.get("expires_at")
+    if isinstance(expires_at, (int, float)) and expires_at <= (
+        time.time() + _TOKEN_REFRESH_SKEW_SECONDS
+    ):
+        record = google_oauth.refresh_token_record(
+            settings, record, http_post=http_post
+        )
+        google_oauth.save_token(settings.token_path, record)
+    return google_oauth.load_user_credentials(config, environ=environ)
+
+
+def _gmail_draft_with_credentials(
+    *,
+    credentials: Any,
     to: str,
     subject: str,
     body: str,
     cc: str | None = None,
 ) -> dict[str, Any]:
-    """Create a Gmail draft via REST using domain-wide delegation.
+    """Create a Gmail draft via REST with caller-built credentials.
 
-    ``google_api.py`` has no draft subcommand; this path uses the same SA +
-    delegate identity already configured for the google_api provider.
+    Surfaces the underlying message id as ``id`` (keeps ``draft_id``),
+    matching the shared provider contract.
     """
     import requests
-
-    credentials = _sa_credentials(
-        service_account_path=service_account_path,
-        delegate_email=delegate_email,
-        scopes=[_GMAIL_DRAFT_SCOPE],
-    )
 
     mime = MIMEText(body or "", _charset="utf-8")
     mime["To"] = to
@@ -205,20 +279,55 @@ def _gmail_draft_via_service_account(
     return out
 
 
-def _drive_untrash_via_service_account(
+def _gmail_draft_via_service_account(
     *,
     service_account_path: str,
     delegate_email: str,
-    file_id: str,
+    to: str,
+    subject: str,
+    body: str,
+    cc: str | None = None,
 ) -> dict[str, Any]:
-    """Restore a trashed Drive file via REST (files.update trashed=False)."""
-    import requests
+    """Create a Gmail draft via REST using domain-wide delegation.
 
+    ``google_api.py`` has no draft subcommand; this path uses the same SA +
+    delegate identity already configured for the google_api provider.
+    """
     credentials = _sa_credentials(
         service_account_path=service_account_path,
         delegate_email=delegate_email,
-        scopes=[_DRIVE_SCOPE],
+        scopes=[_GMAIL_DRAFT_SCOPE],
     )
+    return _gmail_draft_with_credentials(
+        credentials=credentials, to=to, subject=subject, body=body, cc=cc
+    )
+
+
+def _gmail_draft_via_user_token(
+    *,
+    config: Any,
+    to: str,
+    subject: str,
+    body: str,
+    cc: str | None = None,
+    environ: Mapping[str, str] | None = None,
+    http_post: Any = None,
+) -> dict[str, Any]:
+    """Create a Gmail draft via REST acting as the owner (oauth_user)."""
+    credentials = _user_credentials(config, environ=environ, http_post=http_post)
+    return _gmail_draft_with_credentials(
+        credentials=credentials, to=to, subject=subject, body=body, cc=cc
+    )
+
+
+def _drive_untrash_with_credentials(
+    *,
+    credentials: Any,
+    file_id: str,
+) -> dict[str, Any]:
+    """Restore a trashed Drive file via REST with caller-built credentials."""
+    import requests
+
     resp = requests.patch(
         f"{_DRIVE_FILES_URL}/{file_id}",
         headers={
@@ -241,37 +350,50 @@ def _drive_untrash_via_service_account(
     return out
 
 
-def _calendar_create_via_service_account(
+def _drive_untrash_via_service_account(
     *,
     service_account_path: str,
     delegate_email: str,
+    file_id: str,
+) -> dict[str, Any]:
+    """Restore a trashed Drive file via REST (files.update trashed=False)."""
+    credentials = _sa_credentials(
+        service_account_path=service_account_path,
+        delegate_email=delegate_email,
+        scopes=[_DRIVE_SCOPE],
+    )
+    return _drive_untrash_with_credentials(credentials=credentials, file_id=file_id)
+
+
+def _drive_untrash_via_user_token(
+    *,
+    config: Any,
+    file_id: str,
+    environ: Mapping[str, str] | None = None,
+    http_post: Any = None,
+) -> dict[str, Any]:
+    """Restore a trashed Drive file via REST acting as the owner (oauth_user)."""
+    credentials = _user_credentials(config, environ=environ, http_post=http_post)
+    return _drive_untrash_with_credentials(credentials=credentials, file_id=file_id)
+
+
+def _calendar_create_rest(
+    *,
+    credentials: Any,
+    invite_sender: Any,
     title: str,
     start: str,
     end: str,
-    attendees: list[str] | None = None,
+    attendee_emails: list[str],
     description: str | None = None,
 ) -> dict[str, Any]:
-    """Insert a calendar event with a Meet link, then email attendees.
+    """events.insert + invite orchestration with caller-built credentials.
 
-    ``google_api.py calendar create`` cannot request conferenceData (no Meet
-    link) and service-account-created events do not reliably generate Google's
-    own invitation email, so this path uses Calendar events.insert + a Gmail
-    messages.send follow-up.
+    ``invite_sender`` is called with the Meet link (possibly "") once the
+    event exists and attendees are present; it returns a dict with an
+    optional "error" / "invite_message_id" and never raises.
     """
     import requests
-
-    title = _reject_crlf(title, "title")
-    attendee_emails = _validated_attendee_emails(attendees)
-    delegate = _validated_email(delegate_email, "delegate email")
-
-    try:
-        credentials = _sa_credentials(
-            service_account_path=service_account_path,
-            delegate_email=delegate,
-            scopes=[_CALENDAR_SCOPE],
-        )
-    except Exception as exc:
-        raise CalendarInsertError(f"Calendar events.insert failed: {exc}") from exc
 
     body: dict[str, Any] = {
         "summary": title,
@@ -327,38 +449,133 @@ def _calendar_create_via_service_account(
         out["error"] = "meet link pending — invite email not sent"
         return out
 
-    invite_error = _gmail_send_calendar_invite(
-        service_account_path=service_account_path,
-        delegate_email=delegate,
-        title=title,
-        start=start,
-        end=end,
-        attendees=attendee_emails,
-        hangout_link=str(hangout_link) if hangout_link else "",
-    )
-    if invite_error.get("error"):
-        out["error"] = invite_error["error"]
+    invite_result = invite_sender(str(hangout_link) if hangout_link else "")
+    if invite_result.get("error"):
+        out["error"] = invite_result["error"]
     else:
-        out["invite_message_id"] = invite_error.get("invite_message_id")
+        out["invite_message_id"] = invite_result.get("invite_message_id")
         out["invite_sent_to"] = list(attendee_emails)
     return out
 
 
-def _gmail_send_calendar_invite(
+def _calendar_create_via_service_account(
     *,
     service_account_path: str,
     delegate_email: str,
     title: str,
     start: str,
     end: str,
+    attendees: list[str] | None = None,
+    description: str | None = None,
+) -> dict[str, Any]:
+    """Insert a calendar event with a Meet link, then email attendees.
+
+    ``google_api.py calendar create`` cannot request conferenceData (no Meet
+    link) and service-account-created events do not reliably generate Google's
+    own invitation email, so this path uses Calendar events.insert + a Gmail
+    messages.send follow-up.
+    """
+    title = _reject_crlf(title, "title")
+    attendee_emails = _validated_attendee_emails(attendees)
+    delegate = _validated_email(delegate_email, "delegate email")
+
+    try:
+        credentials = _sa_credentials(
+            service_account_path=service_account_path,
+            delegate_email=delegate,
+            scopes=[_CALENDAR_SCOPE],
+        )
+    except Exception as exc:
+        raise CalendarInsertError(f"Calendar events.insert failed: {exc}") from exc
+
+    def _invite(hangout_link: str) -> dict[str, Any]:
+        return _gmail_send_calendar_invite(
+            service_account_path=service_account_path,
+            delegate_email=delegate,
+            title=title,
+            start=start,
+            end=end,
+            attendees=attendee_emails,
+            hangout_link=hangout_link,
+        )
+
+    return _calendar_create_rest(
+        credentials=credentials,
+        invite_sender=_invite,
+        title=title,
+        start=start,
+        end=end,
+        attendee_emails=attendee_emails,
+        description=description,
+    )
+
+
+def _calendar_create_via_user_token(
+    *,
+    config: Any,
+    title: str,
+    start: str,
+    end: str,
+    attendees: list[str] | None = None,
+    description: str | None = None,
+    environ: Mapping[str, str] | None = None,
+    http_post: Any = None,
+) -> dict[str, Any]:
+    """Insert a calendar event with a Meet link, acting as the owner.
+
+    Same contract as the service-account path (Meet link + one follow-up
+    invite email), but the credentials are the owner's stored OAuth token
+    and the invite is sent from the owner's own account.
+    """
+    title = _reject_crlf(title, "title")
+    attendee_emails = _validated_attendee_emails(attendees)
+    google_cfg = config.get("google", {}) if isinstance(config, Mapping) else {}
+    from_email = (
+        str(google_cfg.get("account_email") or "").strip()
+        if isinstance(google_cfg, Mapping)
+        else ""
+    )
+    try:
+        credentials = _user_credentials(config, environ=environ, http_post=http_post)
+    except Exception as exc:
+        raise CalendarInsertError(f"Calendar events.insert failed: {exc}") from exc
+
+    def _invite(hangout_link: str) -> dict[str, Any]:
+        return _gmail_send_invite_with_credentials(
+            credentials=credentials,
+            from_email=from_email,
+            title=title,
+            start=start,
+            end=end,
+            attendees=attendee_emails,
+            hangout_link=hangout_link,
+        )
+
+    return _calendar_create_rest(
+        credentials=credentials,
+        invite_sender=_invite,
+        title=title,
+        start=start,
+        end=end,
+        attendee_emails=attendee_emails,
+        description=description,
+    )
+
+
+def _gmail_send_invite_with_credentials(
+    *,
+    credentials: Any,
+    from_email: str,
+    title: str,
+    start: str,
+    end: str,
     attendees: list[str],
     hangout_link: str,
 ) -> dict[str, Any]:
-    """Send one follow-up invite email covering every attendee.
+    """Send one follow-up invite email with caller-built credentials.
 
-    Never raises: insert already succeeded, so invite failure is partial
-    success for the caller. Uses gmail.modify (same scope as drafts) rather
-    than gmail.send so existing domain-wide delegation keeps working.
+    Never raises: the calendar insert already succeeded, so invite
+    failure is partial success for the caller.
     """
     import requests
 
@@ -378,13 +595,8 @@ def _gmail_send_calendar_invite(
         mime = MIMEText(body_text)
         mime["To"] = ", ".join(attendees)
         mime["Subject"] = f"Invitation: {title}"
-        mime["From"] = delegate_email
+        mime["From"] = from_email
         raw = base64.urlsafe_b64encode(mime.as_bytes()).decode("ascii")
-        credentials = _sa_credentials(
-            service_account_path=service_account_path,
-            delegate_email=delegate_email,
-            scopes=[_GMAIL_DRAFT_SCOPE],
-        )
         resp = requests.post(
             _GMAIL_SEND_URL,
             headers={
@@ -408,6 +620,41 @@ def _gmail_send_calendar_invite(
     if isinstance(data, dict):
         msg_id = str(data.get("id") or "")
     return {"invite_message_id": msg_id}
+
+
+def _gmail_send_calendar_invite(
+    *,
+    service_account_path: str,
+    delegate_email: str,
+    title: str,
+    start: str,
+    end: str,
+    attendees: list[str],
+    hangout_link: str,
+) -> dict[str, Any]:
+    """Send one follow-up invite email covering every attendee.
+
+    Never raises: insert already succeeded, so invite failure is partial
+    success for the caller. Uses gmail.modify (same scope as drafts) rather
+    than gmail.send so existing domain-wide delegation keeps working.
+    """
+    try:
+        credentials = _sa_credentials(
+            service_account_path=service_account_path,
+            delegate_email=delegate_email,
+            scopes=[_GMAIL_DRAFT_SCOPE],
+        )
+    except Exception as exc:  # noqa: BLE001 — invite failure must not drop the event
+        return {"error": f"invite email failed: {exc}"}
+    return _gmail_send_invite_with_credentials(
+        credentials=credentials,
+        from_email=delegate_email,
+        title=title,
+        start=start,
+        end=end,
+        attendees=attendees,
+        hangout_link=hangout_link,
+    )
 
 
 def _calendar_create_contract(fn):
@@ -504,7 +751,23 @@ class GoogleWorkspaceClient(WorkspaceClient):
         self._script = _find_google_api_script()
 
     def acting_identity(self, family: str) -> str | None:
-        """Domain-wide delegation impersonates delegate_email; that is who acts."""
+        """Who acts: the owner account (oauth_user) or the delegate (SA).
+
+        Domain-wide delegation impersonates delegate_email; an oauth_user
+        connection acts as the owner themselves (google.account_email).
+        """
+        if _config_auth_mode(self.config) == "oauth_user":
+            google_cfg = (
+                self.config.get("google", {})
+                if isinstance(self.config, Mapping)
+                else {}
+            )
+            account = (
+                str(google_cfg.get("account_email") or "").strip()
+                if isinstance(google_cfg, Mapping)
+                else ""
+            )
+            return account or self.delegate_email.strip() or None
         return self.delegate_email.strip() or None
 
     def _build_cmd(self, *args: str) -> list[str]:
@@ -619,10 +882,19 @@ class GoogleWorkspaceClient(WorkspaceClient):
         """Create a mail draft.
 
         ``google_api.py`` has no draft CLI; drafts are created via the Gmail
-        REST API using the configured service-account + ``delegate_email``.
-        Surfaces the underlying message id as ``id`` (keeps ``draft_id``),
-        matching the shared provider contract.
+        REST API — with the owner's stored token when the config's auth
+        mode is oauth_user, else the configured service-account +
+        ``delegate_email``. Surfaces the underlying message id as ``id``
+        (keeps ``draft_id``), matching the shared provider contract.
         """
+        if _config_auth_mode(self.config) == "oauth_user":
+            return _gmail_draft_via_user_token(
+                config=self.config,
+                to=to,
+                subject=subject,
+                body=body,
+                cc=cc,
+            )
         google_cfg = (
             self.config.get("google", {})
             if isinstance(self.config, Mapping)
@@ -653,10 +925,11 @@ class GoogleWorkspaceClient(WorkspaceClient):
                         description: str | None = None) -> dict[str, Any]:
         """Create a calendar event with a Google Meet link (Meet-by-default).
 
-        Inserts via Calendar REST (conferenceDataVersion=1) using the
-        configured service account + delegate, then sends one follow-up
-        Gmail invite to attendees. Service-account-created events do not
-        reliably generate Google's own invitation email.
+        Inserts via Calendar REST (conferenceDataVersion=1), then sends
+        one follow-up Gmail invite to attendees. Credentials follow the
+        config's auth mode: the owner's stored token (oauth_user) or the
+        configured service account + delegate — service-account-created
+        events do not reliably generate Google's own invitation email.
         """
         # Date-only strings still get a default time so callers that passed
         # YYYY-MM-DD to the old CLI keep working; RFC3339 values are used as-is.
@@ -671,6 +944,24 @@ class GoogleWorkspaceClient(WorkspaceClient):
             if isinstance(self.config, Mapping)
             else {}
         )
+        if _config_auth_mode(self.config) == "oauth_user":
+            try:
+                return _calendar_create_via_user_token(
+                    config=self.config,
+                    title=title,
+                    start=start,
+                    end=end,
+                    attendees=attendees,
+                    description=description,
+                )
+            except CalendarInsertError:
+                raise
+            except RuntimeError:
+                raise
+            except Exception as exc:
+                raise CalendarInsertError(
+                    f"Calendar events.insert failed: {exc}"
+                ) from exc
         sa_path, _ = google_contacts.service_account_settings(self.config)
         delegate = self.delegate_email or str(
             google_cfg.get("delegate_email") or ""
@@ -750,11 +1041,17 @@ class GoogleWorkspaceClient(WorkspaceClient):
 
     @guarded("drive.untrash", target_arg="file_id", audit_provider="google_api")
     def files_untrash(self, file_id: str) -> dict[str, Any]:
-        """Restore a trashed Drive file (files.update trashed=False via SA REST).
+        """Restore a trashed Drive file (files.update trashed=False via REST).
 
         ``google_api.py`` has no drive-untrash CLI; this mirrors the
-        ``mail_create_draft`` SA REST path.
+        ``mail_create_draft`` routes: the owner's stored token in
+        oauth_user mode, else the service-account REST path.
         """
+        if _config_auth_mode(self.config) == "oauth_user":
+            return _drive_untrash_via_user_token(
+                config=self.config,
+                file_id=file_id,
+            )
         google_cfg = (
             self.config.get("google", {})
             if isinstance(self.config, Mapping)
@@ -862,6 +1159,8 @@ class GoogleWorkspaceClient(WorkspaceClient):
         return backend
 
     def _people_token(self) -> str:
+        if _config_auth_mode(self.config) == "oauth_user":
+            return _user_credentials(self.config).token
         sa_path, delegate = google_contacts.service_account_settings(self.config)
         credentials = _sa_credentials(
             service_account_path=sa_path,

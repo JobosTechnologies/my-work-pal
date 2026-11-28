@@ -4,7 +4,11 @@ One short sitting connects the pilot owner's real Gmail and Calendar.
 Everything else is already built: the connect flow
 (`shared/scripts/google_oauth.py`), the pilot connections file
 (`shared/config/connections.pilot.yaml.example`, shape proven with
-`connection_health.py --config-only`), and the health checks. Only the
+`connection_health.py --config-only`), the health checks, and provider
+execution — since WP13 the `google_api` provider acts with the owner's
+stored token whenever the connections file declares
+`google.auth.mode: oauth_user` (refreshing an expired access token
+itself; `service_account` configs keep the delegation route). Only the
 steps below need the owner present, because they are bound to his
 Google account. Each step is one action on one screen.
 
