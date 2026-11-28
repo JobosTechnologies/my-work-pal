@@ -10,6 +10,13 @@
 #   2. (Nothing else: env-var names, redirect URI, scopes and the token
 #      path below are final and must not change.)
 #
+# Pilot account decision (Nov 27–28, 2026): the pilot runs on JobOS's
+# own company Google account, jobostech@gmail.com — it is already a test
+# user on the "My Work Pal" OAuth consent screen. The earlier pick,
+# ibrahim@jobos.us, was rejected by Google as a test user because it is
+# not a Google account, and the Moe J Diamonds token path was replaced
+# with the JobOS path (~/.myworkpal/jobos/google-token.json).
+#
 # It never contains a secret: the OAuth client id/secret live in the
 # host's secret store and are referenced here by environment-variable
 # name only. Verify this file's shape any time with:
@@ -23,9 +30,9 @@ integrations:
     mode: direct
 
 google:
-  # REPLACE at the sitting: the pilot owner's own Google address
-  # (the mailbox and calendar the assistant acts as).
-  account_email: "owner@moejdiamonds.example"
+  # The pilot account: JobOS's own company Google account (decided
+  # Nov 27–28, 2026; already a test user on the consent screen).
+  account_email: "jobostech@gmail.com"
 
   auth:
     # The owner signs in once with Google; the host stores a per-owner
@@ -43,7 +50,7 @@ google:
       redirect_uri: "https://labs.jobos.us/oauth/google/callback"
       # One file per owner instance, owner-only permissions, never in
       # this repo.
-      token_path: "~/.myworkpal/moe-j-diamonds/google-token.json"
+      token_path: "~/.myworkpal/jobos/google-token.json"
       # Least-access scopes — exactly these five, one per capability:
       scopes:
         - "https://www.googleapis.com/auth/gmail.readonly"    # brief + read one email in full

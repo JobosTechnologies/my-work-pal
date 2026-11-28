@@ -187,7 +187,12 @@ def test_pilot_template_shape_is_right_and_owner_state_is_pending(monkeypatch):
     assert "MWP_GOOGLE_OAUTH_CLIENT_ID" in pending
     assert "MWP_GOOGLE_OAUTH_CLIENT_SECRET" in pending
     assert "sign-in" in pending          # the token is a sitting outcome
-    assert "Replace the template account email" in pending  # template email is a sitting fix
+    # The pilot email was fixed by the Nov 27–28, 2026 decision
+    # (jobostech@gmail.com), so it is no longer a pending sitting fix.
+    assert "Replace the template account email" not in pending
+    checks = {c["name"]: c for c in report["checks"]}
+    assert "jobostech@gmail.com" in checks["account_email"]["detail"]
+    assert "~/.myworkpal/jobos/google-token.json" in checks["token_path"]["detail"]
 
 
 def test_shape_check_names_each_defect(tmp_path):
