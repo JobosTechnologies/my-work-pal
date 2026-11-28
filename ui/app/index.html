@@ -580,6 +580,7 @@ body[data-view="call"] .callview { display: block; }
 .call-back { margin-left: calc(var(--space-4) * -1); }
 .call-stage { text-align: center; }
 .call-avatar {
+  position: relative;
   width: 72px; height: 72px; margin: 0 auto; border-radius: var(--radius-pill);
   display: grid; place-items: center;
   background: var(--surface-300); border: 1px solid var(--border-strong); color: var(--ink);
@@ -600,6 +601,44 @@ body[data-view="call"] .callview { display: block; }
 .call-notice__label { margin: 0; font: 600 12px/16px var(--font-sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-subtle); }
 .call-notice__text { margin: 2px 0 0; font: 400 14px/20px var(--font-sans); color: var(--ink); }
 .call-notice .mwp-badge--sample { margin-left: auto; flex: none; }
+.call-notice[hidden], .call-working[hidden] { display: none; }
+
+/* The avatar's mouth: a small pill under the mic glyph that opens and
+   closes while WorkPal is speaking — an irregular amplitude rhythm,
+   an approximation of speech, not phoneme lip-sync. Still when idle
+   or listening; the animation is removed for reduced motion below. */
+.call-mouth {
+  position: absolute; left: 50%; bottom: 11px; width: 20px; height: 8px;
+  transform: translateX(-50%) scaleY(.25); transform-origin: center;
+  border-radius: var(--radius-pill); background: var(--ink); opacity: .75;
+}
+.is-speaking .call-mouth { animation: mouth-talk .9s ease-in-out infinite; }
+@keyframes mouth-talk {
+  0%, 100% { transform: translateX(-50%) scaleY(.25); }
+  14% { transform: translateX(-50%) scaleY(1); }
+  28% { transform: translateX(-50%) scaleY(.4); }
+  44% { transform: translateX(-50%) scaleY(.85); }
+  58% { transform: translateX(-50%) scaleY(.3); }
+  74% { transform: translateX(-50%) scaleY(.95); }
+  88% { transform: translateX(-50%) scaleY(.45); }
+}
+
+/* Working card: while WorkPal is on a job mid-call, the screen shows
+   what it is doing — then this card gives way to the announcement. */
+.call-working {
+  display: flex; gap: var(--space-3); text-align: left; align-items: flex-start;
+  margin: var(--space-6) auto 0; max-width: 520px;
+  background: var(--surface-200); border: 1px solid var(--border); border-left: 3px solid var(--live);
+  border-radius: var(--radius-md); padding: var(--space-3) var(--space-4);
+}
+.call-working .mwp-icon { width: 18px; height: 18px; color: var(--ink-muted); margin-top: 2px; flex: none; }
+.call-working__label { margin: 0; font: 600 12px/16px var(--font-sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-subtle); }
+.call-working__text { margin: 2px 0 0; font: 400 14px/20px var(--font-sans); color: var(--ink); }
+.call-working__bar { display: block; margin-top: var(--space-2); height: 4px; border-radius: var(--radius-pill); background: var(--surface-300); overflow: hidden; }
+.call-working__bar i { display: block; height: 100%; width: 40%; border-radius: var(--radius-pill); background: var(--live); opacity: .6; animation: work-shimmer 1.8s ease-in-out infinite; }
+@keyframes work-shimmer { 0% { transform: translateX(-110%); } 100% { transform: translateX(280%); } }
+.call-working .mwp-badge--sample { margin-left: auto; flex: none; }
+.talk-orb.is-working::after { animation: orb-ring 2.4s ease-out infinite; }
 
 .call-thread { display: flex; flex-direction: column; gap: var(--space-3); max-width: 520px; margin: var(--space-6) auto 0; text-align: left; }
 .call-thread__label { margin: 0; text-align: center; font: 600 12px/16px var(--font-sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-subtle); }
@@ -651,8 +690,63 @@ body[data-view="call"] .callview { display: block; }
 @media (max-width: 760px) {
   .call-wrap { padding: var(--space-6) var(--space-4); }
 }
+
+/* ---- Floating mini call ----
+   While a call is live and the owner is on another view, the avatar
+   and a slim control pill float over the app, the way a real call
+   floats: avatar with its name pill, then hang up (red), mic, expand,
+   with the call timer at the top of the pill. This is an in-app mock
+   of that behaviour — it floats over this app's surface only, not
+   over the phone's OS or other apps. */
+.mini-call {
+  position: fixed; top: var(--space-4); right: var(--space-4); z-index: 80;
+  display: flex; align-items: flex-start; gap: var(--space-3);
+}
+.mini-call[hidden] { display: none; }
+.mini-call__main {
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-2);
+  background: none; border: 0; padding: 0; cursor: pointer; font: inherit;
+}
+.mini-call__face {
+  position: relative; width: 64px; height: 64px; border-radius: var(--radius-pill);
+  display: grid; place-items: center;
+  background: var(--surface-200); border: 1px solid var(--border-strong); color: var(--ink);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+}
+.mini-call__face .mwp-icon { width: 26px; height: 26px; }
+.mini-call__face .call-mouth { bottom: 9px; width: 17px; height: 7px; }
+.mini-call__name {
+  padding: 2px var(--space-3); border-radius: var(--radius-pill);
+  background: var(--surface-200); border: 1px solid var(--border);
+  font: 600 12px/16px var(--font-sans); color: var(--ink);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .12);
+}
+.mini-call__pill {
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-1);
+  padding: var(--space-2) var(--space-1);
+  background: var(--surface-200); border: 1px solid var(--border); border-radius: var(--radius-pill);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+}
+.mini-call__timer { font: 600 11px/14px var(--font-sans); color: var(--ink-muted); font-variant-numeric: tabular-nums; padding: 2px 0; }
+.mini-call__btn {
+  position: relative; width: 38px; height: 38px; border-radius: var(--radius-pill); border: 0;
+  display: grid; place-items: center; background: transparent; color: var(--ink); cursor: pointer;
+}
+.mini-call__btn:hover { background: var(--surface-300); }
+.mini-call__btn .mwp-icon { width: 19px; height: 19px; }
+.mini-call__btn--end { color: var(--danger); }
+.mini-call__btn--end .mwp-icon { transform: rotate(135deg); }
+.mini-call__btn.is-muted { color: var(--ink-subtle); }
+.mini-call__btn.is-muted::after {
+  content: ""; position: absolute; left: 8px; right: 8px; top: 50%; height: 2px;
+  border-radius: 2px; background: var(--danger); transform: rotate(-45deg);
+}
+@media (max-width: 760px) {
+  .mini-call { top: 68px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .talk-orb.is-listening::after, .talk-wave i { animation: none; }
+  .is-speaking .call-mouth, .call-working__bar i, .talk-orb.is-working::after { animation: none; }
 }
 </style>
 <style>
@@ -1103,8 +1197,9 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
         </div>
 
         <div class="call-stage">
-          <span class="call-avatar" aria-hidden="true">
+          <span class="call-avatar" id="call-avatar" aria-hidden="true">
             <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
+            <span class="call-mouth"></span>
           </span>
           <h1 class="call-name">WorkPal</h1>
           <p class="call-sub">Your assistant · JobOS Labs</p>
@@ -1114,7 +1209,17 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
             <span class="call-clock" id="call-clock" hidden>· 0:00</span>
           </p>
 
-          <div class="call-notice" role="status">
+          <div class="call-working" id="call-working" role="status" hidden>
+            <svg class="mwp-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <div>
+              <p class="call-working__label">Working on it</p>
+              <p class="call-working__text">Working on your inbox tidy — filing newsletters and promos.</p>
+              <span class="call-working__bar" aria-hidden="true"><i></i></span>
+            </div>
+            <span class="mwp-badge mwp-badge--sample">Sample</span>
+          </div>
+
+          <div class="call-notice" id="call-notice" role="status" hidden>
             <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
             <div>
               <p class="call-notice__label">While you were talking</p>
@@ -1258,6 +1363,32 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
       <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu
     </button>
   </nav>
+
+  <!-- Floating mini call: while a call is live and the owner is on
+       another view, the call floats over the app — avatar with its
+       name pill, and a slim pill with the timer, hang up, mic and
+       expand. In-app mock of the floating call widget. -->
+  <div class="mini-call" id="mini-call" hidden>
+    <button class="mini-call__main" id="mini-open" type="button" aria-label="Back to the call with WorkPal">
+      <span class="mini-call__face" id="mini-face" aria-hidden="true">
+        <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
+        <span class="call-mouth"></span>
+      </span>
+      <span class="mini-call__name">WorkPal</span>
+    </button>
+    <div class="mini-call__pill">
+      <span class="mini-call__timer" id="mini-timer" aria-hidden="true">0:00</span>
+      <button class="mini-call__btn mini-call__btn--end" id="mini-end" type="button" aria-label="End call">
+        <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      </button>
+      <button class="mini-call__btn" id="mini-mic" type="button" aria-label="Mute the call (demo)" aria-pressed="false">
+        <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
+      </button>
+      <button class="mini-call__btn" id="mini-expand" type="button" aria-label="Open the full call screen">
+        <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>
+      </button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -1394,9 +1525,15 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
 
   // Call view: the in-app press-and-talk screen (demo).
   // Navigation is the same body[data-view] switch as the tabs and
-  // Settings, deep-linkable as #call. The talk orb cycles
-  // idle -> listening -> WorkPal speaking -> idle; CSS carries the
-  // motion, and a clock runs from the first press until End call.
+  // Settings, deep-linkable as #call. One press of the talk orb runs
+  // the demo cycle: listening -> WorkPal speaking -> working (the
+  // working card shows what WorkPal is doing right now) -> the
+  // mid-call announcement, spoken as the working card gives way to
+  // it. While WorkPal speaks, the avatar's mouth opens and closes —
+  // an amplitude-style approximation, not phoneme lip-sync.
+  // Navigating away mid-call keeps the call live: the mini call
+  // widget floats over the app until the owner comes back or ends
+  // the call from the mini pill, which clears the call everywhere.
   // State changes only — no audio is captured or transmitted.
   (function(){
     var orb = document.getElementById('btn-orb');
@@ -1406,7 +1543,15 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
     var liveLine = document.getElementById('call-live-line');
     var liveText = document.getElementById('call-live-text');
     var endBtn = document.getElementById('btn-end');
-    var phase = 'idle'; // idle | listening | speaking | ended
+    var avatar = document.getElementById('call-avatar');
+    var workingCard = document.getElementById('call-working');
+    var noticeCard = document.getElementById('call-notice');
+    var mini = document.getElementById('mini-call');
+    var miniFace = document.getElementById('mini-face');
+    var miniTimer = document.getElementById('mini-timer');
+    var miniMic = document.getElementById('mini-mic');
+    var phase = 'idle'; // idle | listening | speaking | working | ended
+    var callActive = false;
     var timers = [], clockTimer = null, secs = 0, started = false;
     function fmt(s){ return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
     function later(fn, ms){ timers.push(setTimeout(fn, ms)); }
@@ -1416,13 +1561,20 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
         t.classList.toggle('active', t.dataset.setView === view);
       });
     }
+    function syncMini(){
+      mini.hidden = !(callActive && document.body.dataset.view !== 'call');
+    }
     function setPhase(p){
       phase = p;
       orb.classList.toggle('is-listening', p === 'listening');
       orb.classList.toggle('is-speaking', p === 'speaking');
-      orb.setAttribute('aria-pressed', (p === 'listening' || p === 'speaking') ? 'true' : 'false');
+      orb.classList.toggle('is-working', p === 'working');
+      orb.setAttribute('aria-pressed', (p === 'listening' || p === 'speaking' || p === 'working') ? 'true' : 'false');
+      avatar.classList.toggle('is-speaking', p === 'speaking');
+      miniFace.classList.toggle('is-speaking', p === 'speaking');
       if (p === 'listening'){ stateText.textContent = 'Listening'; caption.textContent = 'Listening… WorkPal hears you'; }
       else if (p === 'speaking'){ stateText.textContent = 'WorkPal is speaking'; caption.textContent = 'WorkPal is speaking'; }
+      else if (p === 'working'){ stateText.textContent = 'Working on it'; caption.textContent = 'WorkPal is on it — the call stays open'; }
       else if (p === 'ended'){ stateText.textContent = 'Call ended · ' + fmt(secs); caption.textContent = 'Press and talk'; }
       else { stateText.textContent = 'Ready when you are'; caption.textContent = 'Press and talk'; }
     }
@@ -1431,31 +1583,60 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
       started = true;
       clock.hidden = false;
       clock.textContent = '· 0:00';
+      miniTimer.textContent = '0:00';
       clockTimer = setInterval(function(){
         secs++;
         clock.textContent = '· ' + fmt(secs);
+        miniTimer.textContent = fmt(secs);
       }, 1000);
+    }
+    function stopClock(){
+      if (clockTimer){ clearInterval(clockTimer); clockTimer = null; }
     }
     function reset(){
       clearTimers();
-      if (clockTimer){ clearInterval(clockTimer); clockTimer = null; }
-      secs = 0; started = false;
+      stopClock();
+      secs = 0; started = false; callActive = false;
       clock.hidden = true;
       liveLine.hidden = true;
+      workingCard.hidden = true;
+      noticeCard.hidden = true;
+      miniMic.classList.remove('is-muted');
+      miniMic.setAttribute('aria-pressed', 'false');
       setPhase('idle');
+      syncMini();
+    }
+    function goHome(){
+      document.body.dataset.view = 'home';
+      setTabs('home');
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+      window.scrollTo(0, 0);
     }
     function openCall(){
       document.body.dataset.view = 'call';
       setTabs('call');
       try { history.replaceState(null, '', '#call'); } catch (e) {}
       window.scrollTo(0, 0);
+      syncMini();
     }
-    function closeCall(){
-      reset();
-      document.body.dataset.view = 'home';
-      setTabs('home');
-      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
-      window.scrollTo(0, 0);
+    function leaveCall(){
+      // Back / Home: the call stays live and floats as the mini widget.
+      goHome();
+      syncMini();
+    }
+    function endCall(){
+      if (phase === 'ended') return;
+      clearTimers();
+      stopClock();
+      var onCallView = document.body.dataset.view === 'call';
+      callActive = false;
+      syncMini();
+      if (onCallView){
+        setPhase('ended');
+        later(function(){ goHome(); reset(); }, 1400);
+      } else {
+        reset();
+      }
     }
     document.querySelectorAll('[data-open-call]').forEach(function(b){
       b.addEventListener('click', function(e){
@@ -1464,26 +1645,42 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
       });
     });
     document.querySelectorAll('[data-close-call]').forEach(function(b){
-      b.addEventListener('click', closeCall);
+      b.addEventListener('click', leaveCall);
     });
+    document.getElementById('mini-open').addEventListener('click', openCall);
+    document.getElementById('mini-expand').addEventListener('click', openCall);
+    document.getElementById('mini-end').addEventListener('click', endCall);
+    miniMic.addEventListener('click', function(){
+      var muted = miniMic.classList.toggle('is-muted');
+      miniMic.setAttribute('aria-pressed', muted ? 'true' : 'false');
+    });
+    if (window.MutationObserver){
+      new MutationObserver(syncMini).observe(document.body, { attributes: true, attributeFilter: ['data-view'] });
+    }
     orb.addEventListener('click', function(){
       if (phase !== 'idle') return;
+      callActive = true;
       startClock();
+      syncMini();
       setPhase('listening');
       later(function(){
-        liveText.textContent = 'One more thing, while we talk: the inbox tidy just finished — 214 newsletters and promos filed. Nothing needed from you.';
+        liveText.textContent = 'That is your day — the Acme sync at 10:00 and Beta scoping at 1:30. Give me a moment on the inbox tidy you asked for.';
         liveLine.hidden = false;
         setPhase('speaking');
-        later(function(){ setPhase('idle'); }, 4200);
+        later(function(){
+          setPhase('working');
+          workingCard.hidden = false;
+          later(function(){
+            workingCard.hidden = true;
+            noticeCard.hidden = false;
+            liveText.textContent = 'One more thing, while we talk: the inbox tidy just finished — 214 newsletters and promos filed. Nothing needed from you.';
+            setPhase('speaking');
+            later(function(){ setPhase('idle'); }, 4200);
+          }, 3600);
+        }, 3000);
       }, 1800);
     });
-    endBtn.addEventListener('click', function(){
-      if (phase === 'ended') return;
-      clearTimers();
-      if (clockTimer){ clearInterval(clockTimer); clockTimer = null; }
-      setPhase('ended');
-      later(closeCall, 1400);
-    });
+    endBtn.addEventListener('click', endCall);
     if (location.hash === '#call') openCall();
   })();
 </script>
