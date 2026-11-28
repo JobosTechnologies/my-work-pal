@@ -19,7 +19,7 @@
     } catch (e) {}
     if (['dark','light','midnight','sand','contrast','system'].indexOf(pref) < 0) pref = 'dark';
     var resolved = pref === 'system'
-      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      ? ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light')
       : pref;
     var root = document.documentElement;
     root.setAttribute('data-theme', resolved);
@@ -380,8 +380,6 @@ a { color: inherit; }
 }
 .chat-item:hover { background: var(--surface-300); color: var(--ink); }
 .chat-item .dot { width: 6px; height: 6px; border-radius: var(--radius-pill); border: 1.5px solid var(--ink-subtle); flex: none; }
-.sidebar .mwp-theme-picker { grid-template-columns: 1fr; padding: 0 var(--space-2); }
-.sidebar .mwp-theme-picker legend { font: 600 12px/16px var(--font-sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-subtle); margin-bottom: var(--space-2); }
 .side-foot { border-top: 1px solid var(--border); padding: var(--space-3) var(--space-4) var(--space-4); }
 .line-status { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-1) var(--space-3); font: 400 13px/18px var(--font-sans); color: var(--ink-muted); }
 .account {
@@ -420,7 +418,8 @@ a { color: inherit; }
 .home-grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: var(--space-6); margin-top: var(--space-6); align-items: start; }
 
 /* Call card extras: in-app call is the primary action, number is second */
-.talk-btn { width: 100%; height: 48px; font-size: 15px; margin-top: var(--space-4); }
+.talk-btn { width: 100%; height: 48px; font-size: 15px; margin-top: var(--space-4); background: var(--on-teal); color: var(--teal-700); border: 1px solid transparent; }
+.talk-btn:hover { opacity: .92; }
 .talk-btn .mwp-icon { width: 20px; height: 20px; }
 .call-hint { margin: var(--space-3) 0 0; font: 400 13px/19px var(--font-sans); color: var(--on-teal-muted); }
 .call-live {
@@ -501,7 +500,6 @@ a { color: inherit; }
   body[data-view="menu"] .menuview { display: block; padding: var(--space-6) var(--space-4); max-width: 560px; margin: 0 auto; }
   .menuview .mwp-nav { padding: 0; }
   .menuview .mwp-nav__item { height: 48px; border: 1px solid var(--border); background: var(--surface-200); margin-bottom: var(--space-2); }
-  .menuview .mwp-theme-picker { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); margin-top: var(--space-5); }
   .menuview .line-status { padding-top: var(--space-4); }
   .menuview .account { margin-top: var(--space-4); }
   .tabbar {
@@ -521,6 +519,239 @@ a { color: inherit; }
     background: var(--amber-500); color: var(--on-amber); font: 700 10px/12px var(--font-sans);
   }
   .tab .tab-badge.off { display: none; }
+}
+
+/* ---- Settings view: calm sections, one primary action (Done) ---- */
+.settingsview { display: none; }
+body[data-view="settings"] .homeview, body[data-view="settings"] .menuview { display: none; }
+body[data-view="settings"] .settingsview { display: block; }
+.settings-wrap { max-width: 680px; margin: 0 auto; padding: var(--space-12) var(--space-6) var(--space-8); }
+.settings-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-6); }
+.settings-back { margin-left: calc(var(--space-4) * -1); }
+.settings-title { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 32px; line-height: 38px; letter-spacing: -0.01em; color: var(--ink); }
+.settings-lede { margin: var(--space-2) 0 0; font: 400 15px/22px var(--font-sans); color: var(--ink-muted); }
+.settings-section { margin-top: var(--space-8); padding-top: var(--space-6); border-top: 1px solid var(--border); }
+.settings-h2 { margin: 0 0 var(--space-2); font: 600 17px/24px var(--font-sans); color: var(--ink); }
+.settings-note { margin: 0 0 var(--space-4); font: 400 14px/20px var(--font-sans); color: var(--ink-muted); }
+.settings-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) 0; border-top: 1px solid var(--border); }
+.settings-row__label { font: 500 15px/22px var(--font-sans); color: var(--ink-muted); }
+.settings-row__value { font: 600 15px/22px var(--font-sans); color: var(--ink); text-align: right; }
+.settings-foot { margin-top: var(--space-8); }
+.settings-foot .mwp-btn { min-width: 160px; }
+.settings-entry {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%; text-align: left;
+  padding: var(--space-2) var(--space-3); margin-bottom: var(--space-2); border-radius: var(--radius-md);
+  color: var(--ink-muted); font: 500 15px/22px var(--font-sans);
+}
+.settings-entry:hover { background: var(--surface-300); color: var(--ink); }
+.settings-entry .mwp-icon { width: 20px; height: 20px; }
+
+/* The one thing that needs the owner, in one quiet line */
+.needs-line { margin: var(--space-4) 0 0; text-align: center; font: 500 14px/20px var(--font-sans); color: var(--ink-muted); }
+
+/* How approval works, in three quiet lines */
+.mwp-trust { margin-top: var(--space-4); padding: var(--space-3) var(--space-4); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface-200); }
+.mwp-trust p { margin: 0; padding: var(--space-1) 0; display: flex; align-items: baseline; gap: var(--space-3); font: 500 14px/20px var(--font-sans); color: var(--ink-muted); }
+.mwp-trust .step { flex: none; font: 700 12px/16px var(--font-sans); color: var(--amber-text); }
+
+@media (max-width: 760px) {
+  .settings-wrap { padding: var(--space-6) var(--space-4); }
+  .needs-line { text-align: left; }
+}
+</style>
+<style>
+/* =====================================================================
+   Theme fallback — no JavaScript required.
+   Generated from the design tokens above: when a theme radio in the
+   Settings picker is checked, these rules restyle the whole app even in
+   viewers where the page's scripts never run. Specificity of
+   html:has(...) beats the [data-theme] blocks, and the values are the
+   same token values, so both paths always agree. Dark needs no rule:
+   it is the :root default.
+   ===================================================================== */
+html:has(.mwp-theme-picker input[value="light"]:checked) {
+  --surface-000: #efece4;
+  --surface-100: #f7f5ef;
+  --surface-200: #ffffff;
+  --surface-300: #f1eee6;
+  --surface-selected: #f6ecd3;
+  --border: #e2ddd0;
+  --border-strong: #cfc8b8;
+  --ink: #15201b;
+  --ink-muted: #4b5650;
+  --ink-subtle: #5f6a64;
+  --amber-500: #f0b43c;
+  --amber-600: #dd9f22;
+  --on-amber: #1a1406;
+  --amber-text: #8a5a00;
+  --amber-surface: #fbf0d6;
+  --amber-border: #e8cf8f;
+  --teal-700: #0f6b55;
+  --teal-border: #0b5848;
+  --teal-surface: #e3f1ec;
+  --on-teal: #ffffff;
+  --on-teal-muted: #d4ece3;
+  --green-text: #0f7a5c;
+  --live: #12a171;
+  --live-halo: rgba(18, 161, 113, 0.16);
+  --danger: #b42318;
+  --focus-ring: #8a5a00;
+  --shadow-focus: 0 0 0 3px rgba(138, 90, 0, 0.22);
+  --shadow-pop: 0 12px 32px rgba(21, 32, 27, 0.12);
+}
+html:has(.mwp-theme-picker input[value="midnight"]:checked) {
+  --surface-000: #0a0e17;
+  --surface-100: #0d1220;
+  --surface-200: #131a2b;
+  --surface-300: #1a2336;
+  --surface-selected: #2a2516;
+  --border: #232c40;
+  --border-strong: #33405a;
+  --ink: #eef1f7;
+  --ink-muted: #a6afc2;
+  --ink-subtle: #8590a6;
+  --amber-500: #f0b43c;
+  --amber-600: #e0a024;
+  --on-amber: #1a1406;
+  --amber-text: #f2b33d;
+  --amber-surface: #2a2312;
+  --amber-border: #5a4718;
+  --teal-700: #0f5560;
+  --teal-border: #1f7684;
+  --teal-surface: #0f2029;
+  --on-teal: #eef1f7;
+  --on-teal-muted: #b7d9df;
+  --green-text: #4cc796;
+  --live: #34d399;
+  --live-halo: rgba(52, 211, 153, 0.18);
+  --danger: #f87171;
+  --focus-ring: #f0b43c;
+  --shadow-focus: 0 0 0 3px rgba(240, 180, 60, 0.28);
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+html:has(.mwp-theme-picker input[value="sand"]:checked) {
+  --surface-000: #ebe3d3;
+  --surface-100: #f6f0e4;
+  --surface-200: #fffaf1;
+  --surface-300: #efe6d6;
+  --surface-selected: #f3e2b8;
+  --border: #ddd1bb;
+  --border-strong: #c9b99c;
+  --ink: #231a10;
+  --ink-muted: #574a3a;
+  --ink-subtle: #6b5d4b;
+  --amber-500: #f0b43c;
+  --amber-600: #dd9f22;
+  --on-amber: #1a1406;
+  --amber-text: #84530a;
+  --amber-surface: #f8e7bf;
+  --amber-border: #e0c27a;
+  --teal-700: #0f6b55;
+  --teal-border: #0b5848;
+  --teal-surface: #dcefe7;
+  --on-teal: #ffffff;
+  --on-teal-muted: #d4ece3;
+  --green-text: #0f7a5c;
+  --live: #12a171;
+  --live-halo: rgba(18, 161, 113, 0.16);
+  --danger: #b42318;
+  --focus-ring: #84530a;
+  --shadow-focus: 0 0 0 3px rgba(132, 83, 10, 0.22);
+  --shadow-pop: 0 12px 32px rgba(35, 26, 16, 0.14);
+}
+html:has(.mwp-theme-picker input[value="contrast"]:checked) {
+  --surface-000: #000000;
+  --surface-100: #000000;
+  --surface-200: #0b0b0b;
+  --surface-300: #161616;
+  --surface-selected: #3a2c00;
+  --border: #8a8a8a;
+  --border-strong: #c8c8c8;
+  --ink: #ffffff;
+  --ink-muted: #e6e6e6;
+  --ink-subtle: #c4c4c4;
+  --amber-500: #ffc24d;
+  --amber-600: #ffb020;
+  --on-amber: #000000;
+  --amber-text: #ffcc66;
+  --amber-surface: #2b2000;
+  --amber-border: #ffc24d;
+  --teal-700: #00594a;
+  --teal-border: #5fe0bd;
+  --teal-surface: #002b23;
+  --on-teal: #ffffff;
+  --on-teal-muted: #e6fff7;
+  --green-text: #5fe0bd;
+  --live: #3ef0a8;
+  --live-halo: rgba(62, 240, 168, 0.30);
+  --danger: #ff8a8a;
+  --focus-ring: #ffcc66;
+  --shadow-focus: 0 0 0 3px rgba(255, 204, 102, 0.55);
+  --shadow-pop: 0 0 0 1px #ffffff;
+}
+@media (prefers-color-scheme: light) {
+html:has(.mwp-theme-picker input[value="system"]:checked) {
+  --surface-000: #efece4;
+  --surface-100: #f7f5ef;
+  --surface-200: #ffffff;
+  --surface-300: #f1eee6;
+  --surface-selected: #f6ecd3;
+  --border: #e2ddd0;
+  --border-strong: #cfc8b8;
+  --ink: #15201b;
+  --ink-muted: #4b5650;
+  --ink-subtle: #5f6a64;
+  --amber-500: #f0b43c;
+  --amber-600: #dd9f22;
+  --on-amber: #1a1406;
+  --amber-text: #8a5a00;
+  --amber-surface: #fbf0d6;
+  --amber-border: #e8cf8f;
+  --teal-700: #0f6b55;
+  --teal-border: #0b5848;
+  --teal-surface: #e3f1ec;
+  --on-teal: #ffffff;
+  --on-teal-muted: #d4ece3;
+  --green-text: #0f7a5c;
+  --live: #12a171;
+  --live-halo: rgba(18, 161, 113, 0.16);
+  --danger: #b42318;
+  --focus-ring: #8a5a00;
+  --shadow-focus: 0 0 0 3px rgba(138, 90, 0, 0.22);
+  --shadow-pop: 0 12px 32px rgba(21, 32, 27, 0.12);
+}
+}
+@media (prefers-color-scheme: dark) {
+html:has(.mwp-theme-picker input[value="system"]:checked) {
+  --surface-000: #0b100e;
+  --surface-100: #0f1512;
+  --surface-200: #151d19;
+  --surface-300: #1b2520;
+  --surface-selected: #2a2414;
+  --border: #26302b;
+  --border-strong: #36423b;
+  --ink: #f3efe6;
+  --ink-muted: #a7b0aa;
+  --ink-subtle: #808b85;
+  --amber-500: #f0b43c;
+  --amber-600: #e0a024;
+  --on-amber: #1a1406;
+  --amber-text: #f2b33d;
+  --amber-surface: #2a2210;
+  --amber-border: #5a4718;
+  --teal-700: #0f5a49;
+  --teal-border: #1d7a63;
+  --teal-surface: #10241e;
+  --on-teal: #f3efe6;
+  --on-teal-muted: #b9dccf;
+  --green-text: #4cc796;
+  --live: #34d399;
+  --live-halo: rgba(52, 211, 153, 0.18);
+  --danger: #f87171;
+  --focus-ring: #f0b43c;
+  --shadow-focus: 0 0 0 3px rgba(240, 180, 60, 0.28);
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
 }
 </style>
 </head>
@@ -558,47 +789,14 @@ a { color: inherit; }
       <button class="chat-item" type="button"><span class="dot"></span>Morning brief</button>
       <div class="chat-day">Yesterday</div>
       <button class="chat-item" type="button"><span class="dot"></span>Get started</button>
-      <div class="side-label">Appearance</div>
-      <fieldset class="mwp-theme-picker" data-theme-picker>
-        <legend>Theme</legend>
-        <label class="mwp-theme-option">
-          <input type="radio" name="theme-side" value="system">
-          <span class="mwp-theme-swatch mwp-theme-swatch--split">
-            <span data-theme="dark"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span></span></span>
-            <span data-theme="light"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span></span></span>
-          </span>
-          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Match my device</span>
-        </label>
-        <label class="mwp-theme-option">
-          <input type="radio" name="theme-side" value="dark">
-          <span class="mwp-theme-swatch" data-theme="dark"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
-          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Dark</span>
-        </label>
-        <label class="mwp-theme-option">
-          <input type="radio" name="theme-side" value="light">
-          <span class="mwp-theme-swatch" data-theme="light"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
-          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Light</span>
-        </label>
-        <label class="mwp-theme-option">
-          <input type="radio" name="theme-side" value="midnight">
-          <span class="mwp-theme-swatch" data-theme="midnight"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
-          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Midnight</span>
-        </label>
-        <label class="mwp-theme-option">
-          <input type="radio" name="theme-side" value="sand">
-          <span class="mwp-theme-swatch" data-theme="sand"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
-          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Sand</span>
-        </label>
-        <label class="mwp-theme-option">
-          <input type="radio" name="theme-side" value="contrast">
-          <span class="mwp-theme-swatch" data-theme="contrast"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
-          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>High contrast</span>
-        </label>
-      </fieldset>
     </div>
     <div class="side-foot">
       <div class="line-status"><span class="mwp-dot"></span>Phone line live · +1 240 231 6158</div>
-      <button class="account" type="button">
+      <button class="settings-entry" type="button" data-open-settings>
+        <svg class="mwp-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </button>
+      <button class="account" type="button" data-open-settings aria-label="Demo Owner, Sample Co — open settings">
         <span class="avatar" aria-hidden="true">DO</span>
         <span class="who"><b>Demo Owner</b><span>Sample Co · Owner</span></span>
         <svg class="mwp-icon" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
@@ -661,6 +859,8 @@ a { color: inherit; }
           </div>
         </div>
 
+        <p class="needs-line">Just one thing needs you — one draft is waiting for your yes.</p>
+
         <div class="home-grid">
           <section class="mwp-card" aria-label="Today">
             <p class="mwp-eyebrow"><svg class="mwp-icon mwp-icon--sm" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Today</p>
@@ -681,7 +881,7 @@ a { color: inherit; }
           <section class="mwp-callcard" aria-label="Talk to WorkPal">
             <p class="mwp-eyebrow"><svg class="mwp-icon mwp-icon--sm" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Talk to WorkPal</p>
             <div><span class="mwp-callcard__live"><span class="mwp-dot"></span>Live now. WorkPal answers.</span></div>
-            <button class="mwp-btn mwp-btn--primary mwp-btn--pill talk-btn" id="btn-talk" type="button">
+            <button class="mwp-btn mwp-btn--pill talk-btn" id="btn-talk" type="button">
               <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
               Talk to WorkPal
             </button>
@@ -717,49 +917,88 @@ a { color: inherit; }
         <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>Connected apps</a>
         <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Vault</a>
         <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Contacts</a>
+              <button class="mwp-nav__item" type="button" data-open-settings><svg class="mwp-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</button>
       </nav>
-      <fieldset class="mwp-theme-picker" data-theme-picker>
-        <legend>Theme</legend>
-        <label class="mwp-theme-option">
-          <input type="radio" name="theme-menu" value="system">
-          <span class="mwp-theme-swatch mwp-theme-swatch--split">
-            <span data-theme="dark"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span></span></span>
-            <span data-theme="light"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span></span></span>
-          </span>
-          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Match my device</span>
-        </label>
-        <label class="mwp-theme-option">
-          <input type="radio" name="theme-menu" value="dark">
-          <span class="mwp-theme-swatch" data-theme="dark"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
-          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Dark</span>
-        </label>
-        <label class="mwp-theme-option">
-          <input type="radio" name="theme-menu" value="light">
-          <span class="mwp-theme-swatch" data-theme="light"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
-          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Light</span>
-        </label>
-        <label class="mwp-theme-option">
-          <input type="radio" name="theme-menu" value="midnight">
-          <span class="mwp-theme-swatch" data-theme="midnight"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
-          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Midnight</span>
-        </label>
-        <label class="mwp-theme-option">
-          <input type="radio" name="theme-menu" value="sand">
-          <span class="mwp-theme-swatch" data-theme="sand"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
-          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Sand</span>
-        </label>
-        <label class="mwp-theme-option">
-          <input type="radio" name="theme-menu" value="contrast">
-          <span class="mwp-theme-swatch" data-theme="contrast"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
-          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>High contrast</span>
-        </label>
-      </fieldset>
       <div class="line-status"><span class="mwp-dot"></span>Phone line live · Quiet hours 9:00 PM to 7:00 AM</div>
-      <button class="account" type="button">
+      <button class="account" type="button" data-open-settings aria-label="Demo Owner, Sample Co — open settings">
         <span class="avatar" aria-hidden="true">DO</span>
         <span class="who"><b>Demo Owner</b><span>Sample Co · Owner</span></span>
         <svg class="mwp-icon" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
       </button>
+    </div>
+    <!-- Settings view -->
+    <div class="settingsview">
+      <div class="settings-wrap">
+        <div class="settings-head">
+          <button class="mwp-btn mwp-btn--ghost settings-back" type="button" data-close-settings>
+            <svg class="mwp-icon" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+            Back
+          </button>
+          <span class="mwp-badge mwp-badge--sample">Sample data</span>
+        </div>
+        <h1 class="settings-title">Settings</h1>
+        <p class="settings-lede">A few calm choices. Everything here can be changed at any time.</p>
+
+        <section class="settings-section" aria-label="Appearance">
+          <h2 class="settings-h2">Appearance</h2>
+          <p class="settings-note">Pick the look that suits your room and your eyes. It changes straight away.</p>
+          <fieldset class="mwp-theme-picker" data-theme-picker>
+            <legend>Theme</legend>
+            <label class="mwp-theme-option">
+              <input type="radio" name="theme" value="system">
+              <span class="mwp-theme-swatch mwp-theme-swatch--split">
+                <span data-theme="dark"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span></span></span>
+                <span data-theme="light"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span></span></span>
+              </span>
+              <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Match my device</span>
+            </label>
+            <label class="mwp-theme-option">
+              <input type="radio" name="theme" value="dark" checked>
+              <span class="mwp-theme-swatch" data-theme="dark"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+              <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Dark</span>
+            </label>
+            <label class="mwp-theme-option">
+              <input type="radio" name="theme" value="light">
+              <span class="mwp-theme-swatch" data-theme="light"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+              <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Light</span>
+            </label>
+            <label class="mwp-theme-option">
+              <input type="radio" name="theme" value="midnight">
+              <span class="mwp-theme-swatch" data-theme="midnight"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+              <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Midnight</span>
+            </label>
+            <label class="mwp-theme-option">
+              <input type="radio" name="theme" value="sand">
+              <span class="mwp-theme-swatch" data-theme="sand"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+              <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Sand</span>
+            </label>
+            <label class="mwp-theme-option">
+              <input type="radio" name="theme" value="contrast">
+              <span class="mwp-theme-swatch" data-theme="contrast"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+              <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>High contrast</span>
+            </label>
+          </fieldset>
+        </section>
+
+        <section class="settings-section" aria-label="Assistant">
+          <h2 class="settings-h2">Assistant</h2>
+          <div class="settings-row"><span class="settings-row__label">Assistant name</span><span class="settings-row__value">WorkPal</span></div>
+          <div class="settings-row"><span class="settings-row__label">Voice</span><span class="settings-row__value">Warm female · American</span></div>
+          <div class="settings-row"><span class="settings-row__label">Morning call</span><span class="settings-row__value">8:00 AM</span></div>
+          <div class="settings-row"><span class="settings-row__label">Quiet hours</span><span class="settings-row__value">9:00 PM to 7:00 AM</span></div>
+        </section>
+
+        <section class="settings-section" aria-label="Business">
+          <h2 class="settings-h2">Business</h2>
+          <div class="settings-row"><span class="settings-row__label">Business name</span><span class="settings-row__value">Sample Co</span></div>
+          <div class="settings-row"><span class="settings-row__label">Name on documents</span><span class="settings-row__value">Sample Co</span></div>
+          <div class="settings-row"><span class="settings-row__label">Phone line</span><span class="settings-row__value">+1 240 231 6158</span></div>
+        </section>
+
+        <div class="settings-foot">
+          <button class="mwp-btn mwp-btn--primary" type="button" data-close-settings>Done</button>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -787,6 +1026,11 @@ a { color: inherit; }
           WorkPal reads every draft back and waits for your yes. Nothing sends without it.
         </p>
       </article>
+      <div class="mwp-trust" aria-label="How approval works">
+        <p><span class="step">1</span>WorkPal drafts it</p>
+        <p><span class="step">2</span>You approve it</p>
+        <p><span class="step">3</span>Then it goes out</p>
+      </div>
     </section>
 
     <section aria-label="Suggested jobs">
@@ -878,6 +1122,24 @@ a { color: inherit; }
     });
   });
 
+  // Settings view: opened from the account area or the mobile menu.
+  // One view at a time, through the same body[data-view] switch as the tabs.
+  document.querySelectorAll('[data-open-settings]').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.body.dataset.view = 'settings';
+      window.scrollTo(0, 0);
+    });
+  });
+  document.querySelectorAll('[data-close-settings]').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.body.dataset.view = 'home';
+      document.querySelectorAll('.tab[data-set-view]').forEach(function(t){
+        t.classList.toggle('active', t.dataset.setView === 'home');
+      });
+      window.scrollTo(0, 0);
+    });
+  });
+
   // Approval card: record the choice on screen only — nothing is sent
   (function(){
     var note = document.getElementById('decision-note');
@@ -961,33 +1223,6 @@ a { color: inherit; }
     }
   });
 
-  // Appearance: the design system's ThemePicker. Six choices — Match my
-  // device plus Dark, Light, Midnight, Sand, High contrast. Both pickers
-  // (sidebar + mobile menu) stay in sync; the choice is saved on this
-  // device and applied by setting data-theme on <html>.
-  (function(){
-    var root = document.documentElement;
-    var mq = window.matchMedia('(prefers-color-scheme: dark)');
-    var pref = root.dataset.themePref || 'dark';
-    function apply(){
-      var resolved = pref === 'system' ? (mq.matches ? 'dark' : 'light') : pref;
-      root.setAttribute('data-theme', resolved);
-      root.dataset.themePref = pref;
-      root.style.colorScheme = (resolved === 'light' || resolved === 'sand') ? 'light' : 'dark';
-      document.querySelectorAll('[data-theme-picker] input[type="radio"]').forEach(function(r){
-        r.checked = (r.value === pref);
-      });
-    }
-    document.querySelectorAll('[data-theme-picker]').forEach(function(picker){
-      picker.addEventListener('change', function(e){
-        pref = e.target.value;
-        try { localStorage.setItem('mwp-theme', pref); } catch (err) {}
-        apply();
-      });
-    });
-    if (mq.addEventListener) mq.addEventListener('change', function(){ if (pref === 'system') apply(); });
-    apply();
-  })();
 
   // In-app call (demo): idle -> connecting -> in call with timer -> ended -> idle.
   // State changes only — no audio is captured or transmitted by this screen.
@@ -1027,6 +1262,39 @@ a { color: inherit; }
         hint.hidden = false;
       }, 1800);
     });
+  })();
+</script>
+<script>
+  // Theme wiring — deliberately isolated from the main demo script above,
+  // so nothing else on the page can break it. State lives in memory first
+  // and is applied immediately; localStorage is only a bonus for next time
+  // and is never required for a switch to take effect. (A pure-CSS layer
+  // keyed on the same radios covers viewers where scripts do not run.)
+  (function(){
+    var root = document.documentElement;
+    var THEMES = ['dark', 'light', 'midnight', 'sand', 'contrast', 'system'];
+    var pref = root.dataset.themePref || 'dark';
+    if (THEMES.indexOf(pref) < 0) pref = 'dark';
+    var mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    function apply(){
+      var resolved = pref === 'system' ? ((mq && mq.matches) ? 'dark' : 'light') : pref;
+      root.setAttribute('data-theme', resolved);
+      root.dataset.themePref = pref;
+      root.style.colorScheme = (resolved === 'light' || resolved === 'sand') ? 'light' : 'dark';
+      document.querySelectorAll('[data-theme-picker] input[type="radio"]').forEach(function(r){
+        r.checked = (r.value === pref);
+      });
+    }
+    document.querySelectorAll('[data-theme-picker] input[type="radio"]').forEach(function(r){
+      r.addEventListener('change', function(){
+        if (!r.checked) return;
+        pref = r.value;
+        apply(); // restyle first, from memory
+        try { localStorage.setItem('mwp-theme', pref); } catch (e) {} // then save, if allowed
+      });
+    });
+    if (mq && mq.addEventListener) mq.addEventListener('change', function(){ if (pref === 'system') apply(); });
+    apply();
   })();
 </script>
 </body>
