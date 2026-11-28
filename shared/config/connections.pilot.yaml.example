@@ -1,0 +1,59 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# TEMPLATE — My Work Pal pilot owner connections file (WP6)
+#
+# This is a TEMPLATE, not a live configuration. At the wiring sitting
+# (docs/wp6-google-sitting.md) it is copied to the pilot owner's real
+# connections file and the two placeholder values marked REPLACE are
+# filled in:
+#
+#   1. google.account_email — the pilot owner's real Google address.
+#   2. (Nothing else: env-var names, redirect URI, scopes and the token
+#      path below are final and must not change.)
+#
+# It never contains a secret: the OAuth client id/secret live in the
+# host's secret store and are referenced here by environment-variable
+# name only. Verify this file's shape any time with:
+#   python shared/scripts/connection_health.py \
+#       --config shared/config/connections.pilot.yaml.example --config-only
+# ─────────────────────────────────────────────────────────────────────────────
+
+integrations:
+  workspace:
+    provider: google_api
+    mode: direct
+
+google:
+  # REPLACE at the sitting: the pilot owner's own Google address
+  # (the mailbox and calendar the assistant acts as).
+  account_email: "owner@moejdiamonds.example"
+
+  auth:
+    # The owner signs in once with Google; the host stores a per-owner
+    # token at token_path below. See shared/scripts/google_oauth.py.
+    mode: oauth_user
+
+    oauth:
+      # From the "My Work Pal Web" client in the JobOS Labs Google Cloud
+      # project (my-work-pal-prod). Provided through the secure capture;
+      # only the variable NAMES live here.
+      client_id_env: "MWP_GOOGLE_OAUTH_CLIENT_ID"
+      client_secret_env: "MWP_GOOGLE_OAUTH_CLIENT_SECRET"
+      # Must match the URI registered under the client's Authorized
+      # redirect URIs character for character (registered at the sitting).
+      redirect_uri: "https://labs.jobos.us/oauth/google/callback"
+      # One file per owner instance, owner-only permissions, never in
+      # this repo.
+      token_path: "~/.myworkpal/moe-j-diamonds/google-token.json"
+      # Least-access scopes — exactly these five, one per capability:
+      scopes:
+        - "https://www.googleapis.com/auth/gmail.readonly"    # brief + read one email in full
+        - "https://www.googleapis.com/auth/gmail.compose"     # draft replies into the Review Queue
+        - "https://www.googleapis.com/auth/gmail.send"        # send — only as the guarded execution of an approved draft
+        - "https://www.googleapis.com/auth/calendar.readonly" # brief + schedule questions
+        - "https://www.googleapis.com/auth/calendar.events"   # move an event — only as the guarded execution of an approved change
+
+connections:
+  # A live probe runs only when this is true AND every local check in
+  # connection_health.py passes. It stays false until the pilot account
+  # is connected at the sitting.
+  allow_live_probe: false

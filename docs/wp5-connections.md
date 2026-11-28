@@ -128,6 +128,9 @@ ours. Precisely:
 - The config template with the exact scope list and env-name references.
 - Health checks that report precisely which of the steps above are done.
 - The disconnect's local half + audit entry.
-- (Pilot stage, WP6 prep) the OAuth connect flow itself — redirect, token
-  exchange, encrypted per-owner token storage, and the Google-side
-  revocation call at disconnect — built against the client from step 4.
+- (WP6 prep, built) the OAuth connect flow itself —
+  `shared/scripts/google_oauth.py`: authorisation URL on the registered
+  redirect URI, code exchange, per-owner token storage (file `0o600`,
+  directory `0o700`), refresh, and the Google-side revocation call for
+  disconnect. The owner steps that remain are in
+  `docs/wp6-google-sitting.md`.

@@ -40,6 +40,10 @@ google:
       # only the variable NAMES live here.
       client_id_env: "MWP_GOOGLE_OAUTH_CLIENT_ID"
       client_secret_env: "MWP_GOOGLE_OAUTH_CLIENT_SECRET"
+      # The redirect URI the connect flow uses. It must match the URI
+      # registered under the client's Authorized redirect URIs in the
+      # Google Cloud console character for character.
+      redirect_uri: "https://labs.jobos.us/oauth/google/callback"
       # Where the host stores the owner's token after consent. Encrypted at
       # rest by the host, one file per owner instance, never in this repo.
       token_path: "~/.myworkpal/yourbusiness/google-token.json"

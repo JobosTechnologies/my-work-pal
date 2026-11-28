@@ -21,8 +21,17 @@ disconnect in the audit log. Revoking the grant on Google's side is part of
 the live connection checklist (docs/wp5-connections.md) — it needs the real
 token, which this stage never holds.
 
+``--config-only`` is the dry-run shape check: it verifies that a
+connections file is *well-formed* for a real ``oauth_user`` connection —
+provider, account field, exact env-var names, the registered redirect URI,
+the exact least-access scope set, a token path — without needing any
+credential to exist. Things that only the owner sitting can supply (the
+env values, the stored token) are reported as pending steps, not
+failures, so a template can be proven correct before wiring day.
+
 Usage:
     python connection_health.py --config company.yaml [--json]
+    python connection_health.py --config company.yaml --config-only
     python connection_health.py --config company.yaml --disconnect
 """
 from __future__ import annotations
@@ -231,6 +240,122 @@ def connection_report(config: Mapping[str, Any] | None) -> dict[str, Any]:
     }
 
 
+def config_shape_report(config: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Dry-run shape check for an ``oauth_user`` google_api connection.
+
+    Verifies the config file is well-formed for a real connection without
+    requiring any credential to exist: env-var *names* must be the decided
+    ones, the redirect URI must match the registered URI exactly, and the
+    declared scopes must be exactly the least-access set. Owner-supplied
+    state (env values set, token stored) is reported under ``pending`` —
+    those are sitting steps (docs/wp6-google-sitting.md), not shape
+    failures.
+    """
+    from google_oauth import (
+        DEFAULT_CLIENT_ID_ENV,
+        DEFAULT_CLIENT_SECRET_ENV,
+        DEFAULT_REDIRECT_URI,
+        REQUIRED_SCOPES,
+    )
+
+    config = config if isinstance(config, Mapping) else {}
+    integrations = config.get("integrations", {})
+    workspace = integrations.get("workspace", {}) if isinstance(integrations, Mapping) else {}
+    provider = str(workspace.get("provider", "") or "")
+    google = _google_block(config)
+    auth = _auth_block(google)
+    oauth = auth.get("oauth", {}) if isinstance(auth.get("oauth", {}), Mapping) else {}
+
+    checks: list[Check] = []
+    pending: list[str] = []
+
+    checks.append(_check(
+        "provider", provider == "google_api",
+        "provider is google_api" if provider == "google_api"
+        else f"provider is '{provider or 'unset'}' — the pilot connects with google_api",
+    ))
+    account = str(google.get("account_email") or "").strip()
+    account_ok = bool(account and "@" in account)
+    placeholder = account_ok and (account.endswith(".example") or "yourbusiness" in account)
+    checks.append(_check(
+        "account_email", account_ok,
+        (f"account email is a template placeholder ({account}) — replace it at the sitting"
+         if placeholder else f"account email present ({account})")
+        if account_ok else "no google.account_email — the field must exist",
+    ))
+    if placeholder:
+        pending.append("Replace the template account email with the pilot owner's real Google address.")
+    mode = resolve_auth_mode(config)
+    checks.append(_check(
+        "auth_mode", mode == "oauth_user",
+        "auth mode is oauth_user" if mode == "oauth_user" else f"auth mode is {mode}, not oauth_user",
+    ))
+    id_env = str(oauth.get("client_id_env") or "")
+    checks.append(_check(
+        "client_id_env_name", id_env == DEFAULT_CLIENT_ID_ENV,
+        f"client id env name is {DEFAULT_CLIENT_ID_ENV}" if id_env == DEFAULT_CLIENT_ID_ENV
+        else f"client_id_env is '{id_env or 'unset'}' — it must be exactly {DEFAULT_CLIENT_ID_ENV}",
+    ))
+    secret_env = str(oauth.get("client_secret_env") or "")
+    checks.append(_check(
+        "client_secret_env_name", secret_env == DEFAULT_CLIENT_SECRET_ENV,
+        f"client secret env name is {DEFAULT_CLIENT_SECRET_ENV}" if secret_env == DEFAULT_CLIENT_SECRET_ENV
+        else f"client_secret_env is '{secret_env or 'unset'}' — it must be exactly {DEFAULT_CLIENT_SECRET_ENV}",
+    ))
+    redirect = str(oauth.get("redirect_uri") or "").strip()
+    checks.append(_check(
+        "redirect_uri", redirect == DEFAULT_REDIRECT_URI,
+        "redirect URI matches the registered URI exactly" if redirect == DEFAULT_REDIRECT_URI
+        else (f"redirect_uri is '{redirect}' — it must be exactly {DEFAULT_REDIRECT_URI}"
+              if redirect else f"no redirect_uri declared — add {DEFAULT_REDIRECT_URI}"),
+    ))
+    declared = {str(s) for s in (oauth.get("scopes") or [])}
+    required = set(REQUIRED_SCOPES)
+    missing = sorted(required - declared)
+    extra = sorted(declared - required)
+    checks.append(_check(
+        "scopes_exact", declared == required,
+        "scopes are exactly the five least-access scopes" if declared == required
+        else "scope set differs: "
+             + (f"missing {[s.rsplit('/', 1)[-1] for s in missing]} " if missing else "")
+             + (f"extra {[s.rsplit('/', 1)[-1] for s in extra]}" if extra else ""),
+    ))
+    token_raw = str(oauth.get("token_path") or "").strip()
+    checks.append(_check(
+        "token_path", bool(token_raw),
+        f"token path declared ({token_raw})" if token_raw else "no google.auth.oauth.token_path declared",
+    ))
+    connections = config.get("connections", {})
+    allow_probe = bool(connections.get("allow_live_probe")) if isinstance(connections, Mapping) else False
+    checks.append(_check(
+        "live_probe_off", not allow_probe,
+        "live probe is off (correct until a real account is connected)" if not allow_probe
+        else "connections.allow_live_probe is true — it must stay off until the account is live",
+    ))
+
+    for env_name in (DEFAULT_CLIENT_ID_ENV, DEFAULT_CLIENT_SECRET_ENV):
+        if not _env_present(env_name):
+            pending.append(
+                f"Set {env_name} on the host from the 'My Work Pal Web' client, "
+                "via the secure capture at the sitting."
+            )
+    if token_raw:
+        token_path = Path(token_raw).expanduser()
+        if not token_path.is_file():
+            pending.append(
+                "The owner completes the one-time Google sign-in so a token is "
+                f"stored at {token_raw}."
+            )
+
+    return {
+        "provider": provider or "google_api",
+        "mode": "config-only",
+        "shape_ok": all(c["ok"] for c in checks),
+        "checks": checks,
+        "pending": pending,
+    }
+
+
 def disconnect(config: Mapping[str, Any], *, actor: str = "owner") -> dict[str, Any]:
     """Local half of disconnect: remove the stored token, audit the event.
 
@@ -278,6 +403,9 @@ def _load_config(path: str | None) -> dict[str, Any]:
 def _main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Workspace connection health (WP5)")
     parser.add_argument("--config", help="Path to company.yaml")
+    parser.add_argument("--config-only", action="store_true",
+                        help="Dry-run shape check only: no credentials needed; "
+                             "owner-supplied state is reported as pending")
     parser.add_argument("--disconnect", action="store_true",
                         help="Remove the stored OAuth token and audit the disconnect")
     args = parser.parse_args(argv)
@@ -285,6 +413,10 @@ def _main(argv: list[str] | None = None) -> int:
     if args.disconnect:
         print(json.dumps(disconnect(config), indent=2))
         return 0
+    if args.config_only:
+        shape = config_shape_report(config)
+        print(json.dumps(shape, indent=2))
+        return 0 if shape["shape_ok"] else 1
     report = connection_report(config)
     print(json.dumps(report, indent=2))
     return 0 if report["healthy"] else 1
