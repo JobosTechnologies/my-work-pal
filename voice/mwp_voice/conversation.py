@@ -35,8 +35,14 @@ from typing import Any
 from .foundation_bridge import SpokenPreview, VoiceBridge
 
 # -- spoken decision vocabulary -------------------------------------------
-# Deliberately small and exact. Anything outside these sets is "unclear",
-# which is the safe direction: unclear never approves.
+# Deliberately small. A decision phrase must be the whole utterance or
+# LEAD it: speech-to-text returns whole sentences, so an owner who says
+# "yes, please send the email to John now" has given a clear yes even
+# though the sentence is longer than the vocabulary entry. A yes that
+# does not lead ("I said yes earlier, but not now") is not a yes, and a
+# negation or hold word anywhere after the lead voids it ("yes, but
+# don't send it yet"). Anything else is "unclear", which is the safe
+# direction: unclear never approves.
 
 _CLEAR_YES = {
     "yes", "yeah", "yep", "yes please", "yes go ahead", "go ahead",
@@ -66,6 +72,26 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text)
 
 
+# Words that void a leading yes: the owner qualified or reversed it.
+_YES_VOIDERS = {"no", "not", "dont", "never", "wait", "stop", "cancel", "hold", "back"}
+# Words that void a leading no, symmetrically.
+_NO_VOIDERS = {"yes", "yeah", "yep"}
+
+
+def _led_by(norm: str, phrases: set[str]) -> str | None:
+    """The remainder when ``norm`` is led by a phrase, else None.
+
+    Longest phrase wins, so "yes go ahead" beats "yes". An exact match
+    returns the empty remainder.
+    """
+    for phrase in sorted(phrases, key=len, reverse=True):
+        if norm == phrase:
+            return ""
+        if norm.startswith(phrase + " "):
+            return norm[len(phrase) + 1:]
+    return None
+
+
 def classify_decision(text: str) -> str:
     """'clear_yes', 'clear_no', or 'unclear' — unclear is the safe default."""
     norm = _normalize(text)
@@ -73,6 +99,12 @@ def classify_decision(text: str) -> str:
         return "clear_yes"
     if norm in _CLEAR_NO:
         return "clear_no"
+    rest = _led_by(norm, _CLEAR_YES)
+    if rest is not None:
+        return "unclear" if set(rest.split()) & _YES_VOIDERS else "clear_yes"
+    rest = _led_by(norm, _CLEAR_NO)
+    if rest is not None:
+        return "unclear" if set(rest.split()) & _NO_VOIDERS else "clear_no"
     return "unclear"
 
 
