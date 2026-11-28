@@ -21,7 +21,7 @@ for _p in (ROOT / "shared" / "scripts", ROOT / "skills" / "daily-briefing" / "sc
         sys.path.insert(0, str(_p))
 
 import state_db  # noqa: E402
-from mwp_voice.conversation import ConversationEngine, _shorten  # noqa: E402
+from mwp_voice.conversation import ConversationEngine, _shorten, classify_decision  # noqa: E402
 from mwp_voice.foundation_bridge import VoiceBridge  # noqa: E402
 from mwp_voice.mock_provider import MockCallDriver  # noqa: E402
 
@@ -198,3 +198,50 @@ def test_interrupt_drops_pending_speech(workspace):
     assert engine.pending_say
     engine.interrupt()
     assert engine.pending_say == []
+
+
+# -- classify_decision: a decision phrase may lead a spoken sentence --------
+# Regression for the Nov 27, 2026 live call: the owner said yes in full
+# sentences several times and every one classified "unclear" under the old
+# exact-match rule, so the gateway was never reached and the proposal sat
+# in "requested" forever. Speech-to-text returns sentences, not bare words.
+
+
+@pytest.mark.parametrize(
+    "words",
+    [
+        "yes",
+        "Yes, go ahead",
+        "Yes, go ahead and send the email to John Tan at Acme Corp now.",
+        "Yes, please send the email to John Tan now.",
+        "Yes. That is a clear yes.",
+        "Yeah, send it",
+        "Okay yes, send it",
+    ],
+)
+def test_classify_clear_yes_includes_yes_led_sentences(words):
+    assert classify_decision(words) == "clear_yes"
+
+
+@pytest.mark.parametrize(
+    "words,expected",
+    [
+        ("no", "clear_no"),
+        ("No, leave it", "clear_no"),
+        ("No, don't send it", "clear_no"),
+        # A yes that does not lead is not a yes.
+        ("I said yes earlier", "unclear"),
+        ("I think so", "unclear"),
+        ("Hmm, maybe", "unclear"),
+        ("", "unclear"),
+        # A leading yes voided by what follows it.
+        ("Yes, but don't send it yet", "unclear"),
+        ("Yes, no, wait", "unclear"),
+        ("Go ahead and cancel that", "unclear"),
+        ("Send it back to him", "unclear"),
+        # A leading no voided by a yes after it.
+        ("No, actually yes, send it", "unclear"),
+    ],
+)
+def test_classify_decision_safe_direction(words, expected):
+    assert classify_decision(words) == expected

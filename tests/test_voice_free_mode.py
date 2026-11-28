@@ -409,3 +409,37 @@ def test_free_mode_conversation_end_to_end(tmp_path, monkeypatch):
 
     asyncio.run(go())
     bridge.close()
+
+
+def test_sentence_long_yes_approves_and_sends_exactly_once(call):
+    """The Nov 27, 2026 live-call shape: the owner's yes is a full sentence.
+
+    Before the classify_decision fix this wording classified "unclear",
+    the gateway was never reached, and the proposal stayed in "requested"
+    no matter how many times the owner said yes.
+    """
+    bridge, state = call
+    action = bridge.seed_follow_up()
+    state.read_back(action["id"])
+    approved = state.note_owner_utterance(
+        "Yes, go ahead and send the email to John Tan at Acme Corp now."
+    )
+    assert approved == action["id"]
+    assert bridge.action_state(action["id"]) == "approved"
+    done = state.execute(action["id"])
+    assert done.startswith("Done")
+    assert len(bridge.sent) == 1
+    # A second yes after execution sends nothing again.
+    assert state.note_owner_utterance("Yes, send it") is None
+    assert "not approved" in state.execute(action["id"])
+    assert len(bridge.sent) == 1
+    assert bridge.action_state(action["id"]) == "executed"
+
+
+def test_qualified_yes_leaves_the_proposal_requested(call):
+    bridge, state = call
+    state.propose_email("john@acme.example", "Following up", "Hi John.")
+    action_id = state.pending_readback_id
+    assert state.note_owner_utterance("Yes, but don't send it yet") is None
+    assert bridge.action_state(action_id) == "requested"
+    assert bridge.sent == []
