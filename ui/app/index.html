@@ -567,6 +567,93 @@ body[data-view="settings"] .settingsview { display: block; }
   .settings-wrap { padding: var(--space-6) var(--space-4); }
   .needs-line { text-align: left; }
 }
+
+/* ---- Call view: the in-app press-and-talk screen ----
+   Same body[data-view] switch as Settings and the mobile tabs.
+   Tokens only; teal stays on the phone-line number, the one amber
+   moment is the listening state (the composer's is-listening rule). */
+.callview { display: none; }
+body[data-view="call"] .homeview, body[data-view="call"] .menuview { display: none; }
+body[data-view="call"] .callview { display: block; }
+.call-wrap { max-width: 680px; margin: 0 auto; padding: var(--space-8) var(--space-6) var(--space-8); }
+.call-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-6); }
+.call-back { margin-left: calc(var(--space-4) * -1); }
+.call-stage { text-align: center; }
+.call-avatar {
+  width: 72px; height: 72px; margin: 0 auto; border-radius: var(--radius-pill);
+  display: grid; place-items: center;
+  background: var(--surface-300); border: 1px solid var(--border-strong); color: var(--ink);
+}
+.call-avatar .mwp-icon { width: 30px; height: 30px; }
+.call-name { margin: var(--space-4) 0 0; font-family: var(--font-display); font-weight: 700; font-size: 32px; line-height: 38px; letter-spacing: -0.01em; color: var(--ink); }
+.call-sub { margin: var(--space-1) 0 0; font: 400 14px/20px var(--font-sans); color: var(--ink-subtle); }
+.call-state { display: inline-flex; align-items: center; gap: var(--space-2); margin: var(--space-4) 0 0; font: 600 14px/20px var(--font-sans); color: var(--ink-muted); }
+.call-clock { font-weight: 400; color: var(--ink-subtle); font-variant-numeric: tabular-nums; }
+
+.call-notice {
+  display: flex; gap: var(--space-3); text-align: left; align-items: flex-start;
+  margin: var(--space-6) auto 0; max-width: 520px;
+  background: var(--surface-200); border: 1px solid var(--border); border-left: 3px solid var(--green-text);
+  border-radius: var(--radius-md); padding: var(--space-3) var(--space-4);
+}
+.call-notice .mwp-icon { width: 18px; height: 18px; color: var(--green-text); margin-top: 2px; flex: none; }
+.call-notice__label { margin: 0; font: 600 12px/16px var(--font-sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-subtle); }
+.call-notice__text { margin: 2px 0 0; font: 400 14px/20px var(--font-sans); color: var(--ink); }
+.call-notice .mwp-badge--sample { margin-left: auto; flex: none; }
+
+.call-thread { display: flex; flex-direction: column; gap: var(--space-3); max-width: 520px; margin: var(--space-6) auto 0; text-align: left; }
+.call-thread__label { margin: 0; text-align: center; font: 600 12px/16px var(--font-sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-subtle); }
+.call-thread .msg { max-width: 88%; }
+
+.call-controls { margin-top: var(--space-8); }
+.talk-orb {
+  position: relative; width: 96px; height: 96px; border-radius: var(--radius-pill);
+  display: grid; place-items: center; margin: 0 auto;
+  background: var(--surface-200); border: 1px solid var(--border-strong); color: var(--ink);
+  cursor: pointer; transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.talk-orb:hover { background: var(--surface-300); }
+.talk-orb .mwp-icon { width: 34px; height: 34px; }
+.talk-orb::after {
+  content: ""; position: absolute; inset: -1px; border-radius: var(--radius-pill);
+  border: 2px solid var(--live); opacity: 0; pointer-events: none;
+}
+.talk-orb.is-listening { background: var(--amber-surface); border-color: var(--amber-border); color: var(--amber-text); }
+.talk-orb.is-listening::after { animation: orb-ring 1.6s ease-out infinite; }
+@keyframes orb-ring {
+  0% { transform: scale(1); opacity: .5; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+.talk-wave { display: none; align-items: flex-end; gap: 4px; height: 30px; }
+.talk-wave i { display: block; width: 4px; height: 10px; border-radius: var(--radius-pill); background: var(--green-text); animation: wave-bar .9s ease-in-out infinite; }
+.talk-wave i:nth-child(2) { animation-delay: .12s; }
+.talk-wave i:nth-child(3) { animation-delay: .24s; }
+.talk-wave i:nth-child(4) { animation-delay: .36s; }
+.talk-wave i:nth-child(5) { animation-delay: .48s; }
+.talk-orb.is-speaking .talk-wave { display: inline-flex; }
+.talk-orb.is-speaking .orb-mic { display: none; }
+@keyframes wave-bar { 0%, 100% { height: 8px; } 50% { height: 26px; } }
+.talk-caption { margin: var(--space-3) 0 0; font: 500 14px/20px var(--font-sans); color: var(--ink-muted); }
+
+.call-meta { margin: var(--space-8) auto 0; max-width: 520px; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-1) var(--space-3); font: 400 13px/19px var(--font-sans); color: var(--ink-muted); }
+.call-phone { color: var(--green-text); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.call-phone:hover { text-decoration: underline; }
+.call-foot { margin-top: var(--space-5); display: flex; justify-content: center; }
+.end-call-btn {
+  display: inline-flex; align-items: center; gap: var(--space-2); height: 40px; padding: 0 var(--space-5);
+  border-radius: var(--radius-pill); border: 1px solid var(--border-strong);
+  background: var(--surface-200); color: var(--danger);
+  font: 600 14px/20px var(--font-sans); cursor: pointer;
+}
+.end-call-btn:hover { background: var(--surface-300); }
+.end-call-btn .mwp-icon { width: 18px; height: 18px; transform: rotate(135deg); }
+
+@media (max-width: 760px) {
+  .call-wrap { padding: var(--space-6) var(--space-4); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .talk-orb.is-listening::after, .talk-wave i { animation: none; }
+}
 </style>
 <style>
 /* =====================================================================
@@ -842,7 +929,7 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
         </form>
 
         <div class="chips">
-          <a class="mwp-chip mwp-chip--call" href="tel:+12402316158" aria-label="Call WorkPal">
+          <a class="mwp-chip mwp-chip--call" href="#call" data-open-call aria-label="Call WorkPal">
             <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
             Call WorkPal
           </a>
@@ -890,16 +977,10 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
           <section class="mwp-callcard" aria-label="Talk to WorkPal">
             <p class="mwp-eyebrow"><svg class="mwp-icon mwp-icon--sm" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Talk to WorkPal</p>
             <div><span class="mwp-callcard__live"><span class="mwp-dot"></span>Live now. WorkPal answers.</span></div>
-            <button class="mwp-btn mwp-btn--pill talk-btn" id="btn-talk" type="button">
+            <button class="mwp-btn mwp-btn--pill talk-btn" id="btn-talk" type="button" data-open-call>
               <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
               Talk to WorkPal
             </button>
-            <div class="call-live" id="call-live" role="status" hidden>
-              <span class="mwp-dot"></span>
-              <span class="call-status" id="call-status">Connecting…</span>
-              <span class="call-timer" id="call-timer">0:00</span>
-              <button class="end-btn" id="btn-end-call" type="button">End call</button>
-            </div>
             <p class="call-hint" id="call-hint">Press and talk, right here in the app. No dialling — just speak and WorkPal answers.</p>
             <div class="by-number">
               <span class="by-label">Or call by number</span>
@@ -1009,6 +1090,75 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
         </div>
       </div>
     </div>
+
+    <!-- Call view: the in-app press-and-talk screen -->
+    <div class="callview">
+      <div class="call-wrap">
+        <div class="call-head">
+          <button class="mwp-btn mwp-btn--ghost call-back" type="button" data-close-call>
+            <svg class="mwp-icon" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg>
+            Home
+          </button>
+          <span class="mwp-badge mwp-badge--sample">Sample data</span>
+        </div>
+
+        <div class="call-stage">
+          <span class="call-avatar" aria-hidden="true">
+            <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
+          </span>
+          <h1 class="call-name">WorkPal</h1>
+          <p class="call-sub">Your assistant · JobOS Labs</p>
+          <p class="call-state" role="status">
+            <span class="mwp-dot"></span>
+            <span id="call-state-text">Ready when you are</span>
+            <span class="call-clock" id="call-clock" hidden>· 0:00</span>
+          </p>
+
+          <div class="call-notice" role="status">
+            <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+            <div>
+              <p class="call-notice__label">While you were talking</p>
+              <p class="call-notice__text">The inbox tidy finished — 214 newsletters and promos filed, and real mail is standing out. Nothing needed from you.</p>
+            </div>
+            <span class="mwp-badge mwp-badge--sample">Sample</span>
+          </div>
+
+          <div class="call-thread" aria-label="Call transcript">
+            <p class="call-thread__label">Transcript · Sample</p>
+            <div class="msg owner">Morning, WorkPal. What does my day look like?</div>
+            <div class="msg pal">
+              <span class="from">WorkPal</span>
+              Two things today: the Acme Corp procurement sync at 10:00 with John Tan, and Beta proposal scoping at 1:30. The Gamma Inc kickoff is tomorrow at 9:00, and the brief for it is ready. Just one thing needs you — the follow-up draft to John Tan is waiting for your yes.
+            </div>
+            <div class="msg pal" id="call-live-line" hidden>
+              <span class="from">WorkPal</span>
+              <span id="call-live-text"></span>
+            </div>
+          </div>
+
+          <div class="call-controls">
+            <button class="talk-orb" id="btn-orb" type="button" aria-pressed="false" aria-label="Press and talk">
+              <svg class="mwp-icon orb-mic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
+              <span class="talk-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+            </button>
+            <p class="talk-caption" id="talk-caption">Press and talk</p>
+          </div>
+
+          <p class="call-meta">
+            <span>In-app call · no carrier charge</span>
+            <span aria-hidden="true">·</span>
+            <span>Rather use a regular phone? Call the line: <a class="call-phone" href="tel:+12402316158">+1 240 231 6158</a></span>
+          </p>
+
+          <div class="call-foot">
+            <button class="end-call-btn" id="btn-end" type="button">
+              <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+              End call
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <!-- ============ Right rail ============ -->
@@ -1101,9 +1251,9 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
       <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>Approvals
       <span class="tab-badge" id="tab-badge">1</span>
     </button>
-    <a class="tab" href="tel:+12402316158">
+    <button class="tab" type="button" data-set-view="call" data-open-call>
       <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call
-    </a>
+    </button>
     <button class="tab" type="button" data-set-view="menu">
       <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu
     </button>
@@ -1242,44 +1392,99 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
   });
 
 
-  // In-app call (demo): idle -> connecting -> in call with timer -> ended -> idle.
-  // State changes only — no audio is captured or transmitted by this screen.
+  // Call view: the in-app press-and-talk screen (demo).
+  // Navigation is the same body[data-view] switch as the tabs and
+  // Settings, deep-linkable as #call. The talk orb cycles
+  // idle -> listening -> WorkPal speaking -> idle; CSS carries the
+  // motion, and a clock runs from the first press until End call.
+  // State changes only — no audio is captured or transmitted.
   (function(){
-    var talkBtn = document.getElementById('btn-talk');
-    var live = document.getElementById('call-live');
-    var status = document.getElementById('call-status');
-    var timerEl = document.getElementById('call-timer');
-    var endBtn = document.getElementById('btn-end-call');
-    var hint = document.getElementById('call-hint');
-    var connectTimer = null, tick = null, secs = 0;
+    var orb = document.getElementById('btn-orb');
+    var stateText = document.getElementById('call-state-text');
+    var caption = document.getElementById('talk-caption');
+    var clock = document.getElementById('call-clock');
+    var liveLine = document.getElementById('call-live-line');
+    var liveText = document.getElementById('call-live-text');
+    var endBtn = document.getElementById('btn-end');
+    var phase = 'idle'; // idle | listening | speaking | ended
+    var timers = [], clockTimer = null, secs = 0, started = false;
     function fmt(s){ return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
-    talkBtn.addEventListener('click', function(){
-      talkBtn.hidden = true;
-      hint.hidden = true;
-      live.hidden = false;
-      endBtn.hidden = false;
-      status.textContent = 'Connecting…';
-      timerEl.textContent = '0:00';
-      secs = 0;
-      connectTimer = setTimeout(function(){
-        status.textContent = 'In call — WorkPal is listening (demo)';
-        tick = setInterval(function(){
-          secs++;
-          timerEl.textContent = fmt(secs);
-        }, 1000);
-      }, 1300);
+    function later(fn, ms){ timers.push(setTimeout(fn, ms)); }
+    function clearTimers(){ timers.forEach(clearTimeout); timers = []; }
+    function setTabs(view){
+      document.querySelectorAll('.tab[data-set-view]').forEach(function(t){
+        t.classList.toggle('active', t.dataset.setView === view);
+      });
+    }
+    function setPhase(p){
+      phase = p;
+      orb.classList.toggle('is-listening', p === 'listening');
+      orb.classList.toggle('is-speaking', p === 'speaking');
+      orb.setAttribute('aria-pressed', (p === 'listening' || p === 'speaking') ? 'true' : 'false');
+      if (p === 'listening'){ stateText.textContent = 'Listening'; caption.textContent = 'Listening… WorkPal hears you'; }
+      else if (p === 'speaking'){ stateText.textContent = 'WorkPal is speaking'; caption.textContent = 'WorkPal is speaking'; }
+      else if (p === 'ended'){ stateText.textContent = 'Call ended · ' + fmt(secs); caption.textContent = 'Press and talk'; }
+      else { stateText.textContent = 'Ready when you are'; caption.textContent = 'Press and talk'; }
+    }
+    function startClock(){
+      if (started) return;
+      started = true;
+      clock.hidden = false;
+      clock.textContent = '· 0:00';
+      clockTimer = setInterval(function(){
+        secs++;
+        clock.textContent = '· ' + fmt(secs);
+      }, 1000);
+    }
+    function reset(){
+      clearTimers();
+      if (clockTimer){ clearInterval(clockTimer); clockTimer = null; }
+      secs = 0; started = false;
+      clock.hidden = true;
+      liveLine.hidden = true;
+      setPhase('idle');
+    }
+    function openCall(){
+      document.body.dataset.view = 'call';
+      setTabs('call');
+      try { history.replaceState(null, '', '#call'); } catch (e) {}
+      window.scrollTo(0, 0);
+    }
+    function closeCall(){
+      reset();
+      document.body.dataset.view = 'home';
+      setTabs('home');
+      try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+      window.scrollTo(0, 0);
+    }
+    document.querySelectorAll('[data-open-call]').forEach(function(b){
+      b.addEventListener('click', function(e){
+        e.preventDefault();
+        openCall();
+      });
     });
-    endBtn.addEventListener('click', function(){
-      clearTimeout(connectTimer);
-      clearInterval(tick);
-      status.textContent = secs > 0 ? 'Call ended · ' + fmt(secs) : 'Call ended';
-      endBtn.hidden = true;
-      setTimeout(function(){
-        live.hidden = true;
-        talkBtn.hidden = false;
-        hint.hidden = false;
+    document.querySelectorAll('[data-close-call]').forEach(function(b){
+      b.addEventListener('click', closeCall);
+    });
+    orb.addEventListener('click', function(){
+      if (phase !== 'idle') return;
+      startClock();
+      setPhase('listening');
+      later(function(){
+        liveText.textContent = 'One more thing, while we talk: the inbox tidy just finished — 214 newsletters and promos filed. Nothing needed from you.';
+        liveLine.hidden = false;
+        setPhase('speaking');
+        later(function(){ setPhase('idle'); }, 4200);
       }, 1800);
     });
+    endBtn.addEventListener('click', function(){
+      if (phase === 'ended') return;
+      clearTimers();
+      if (clockTimer){ clearInterval(clockTimer); clockTimer = null; }
+      setPhase('ended');
+      later(closeCall, 1400);
+    });
+    if (location.hash === '#call') openCall();
   })();
 </script>
 <script>
