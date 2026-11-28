@@ -819,7 +819,7 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
       <div class="center-wrap">
         <div class="greeting">
           <p class="mwp-eyebrow" id="today-line">Today</p>
-          <h1 class="mwp-display">Good morning. Point <em>WorkPal</em> at the busywork.</h1>
+          <h1 class="mwp-display"><span id="greeting-word">Good morning</span>. Point <em>WorkPal</em> at the busywork.</h1>
           <p class="mwp-lede">Your brief is ready, and one draft is waiting for your yes.</p>
         </div>
 
@@ -1112,12 +1112,21 @@ html:has(.mwp-theme-picker input[value="system"]:checked) {
 
 <script>
   // Today's date in the greeting eyebrow: FRIDAY, NOVEMBER 28
+  // Greeting word follows the viewer's local hour; the static HTML
+  // text ("Good morning") stays as the no-script fallback.
   (function(){
     var el = document.getElementById('today-line');
     var d = new Date();
     var wd = d.toLocaleDateString(undefined, { weekday: 'long' });
     var md = d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
     el.textContent = wd + ', ' + md;
+    var h = d.getHours();
+    var g = (h >= 5 && h < 12) ? 'Good morning'
+          : (h >= 12 && h < 17) ? 'Good afternoon'
+          : (h >= 17 && h < 22) ? 'Good evening'
+          : 'Good night';
+    var gw = document.getElementById('greeting-word');
+    if (gw) gw.textContent = g;
   })();
 
   // Mobile view switching (bottom tab bar)
