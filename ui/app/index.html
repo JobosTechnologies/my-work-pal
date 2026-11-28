@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Work Pal — WorkPal by JobOS Labs</title>
+<meta name="description" content="My Work Pal owner app: talk to WorkPal, approve drafts, and keep the busywork moving. Sample-data design build.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ============ Sabi palette, adapted to a dark professional shell ============ */
+  :root{
+    --bg:        #090e0b;   /* app background, near-black green */
+    --bg-raise:  #0d130f;   /* sidebar / right panel */
+    --card:      #121a15;   /* card surface */
+    --card-2:    #16211a;   /* raised card surface */
+    --inset:     #0b100d;   /* inset wells: composer, draft */
+    --border:    rgba(214, 232, 219, .09);
+    --border-2:  rgba(214, 232, 219, .16);
+    --text:      #eef3ec;
+    --muted:     #9daca0;
+    --faint:     #6f7f72;
+    --teal:      #0e6b57;   /* Sabi deep teal */
+    --teal-hi:   #35c79e;   /* live accents on dark */
+    --amber:     #f0b23e;   /* Sabi amber */
+    --amber-ink: #201503;   /* text on amber */
+    --cream:     #f6efdd;
+    --danger:    #e07856;
+    --radius:    18px;
+    --radius-lg: 22px;
+    --shadow:    0 18px 44px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.35);
+    --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  }
+  *{ box-sizing: border-box; }
+  html, body{ height: 100%; }
+  body{
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--font-ui); font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  button{ font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  a{ color: inherit; text-decoration: none; }
+  :focus-visible{ outline: 2px solid var(--amber); outline-offset: 2px; border-radius: 6px; }
+  .ic{ width: 19px; height: 19px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .ic.sm{ width: 15px; height: 15px; }
+
+  /* ============ App shell (desktop) ============ */
+  .shell{
+    display: grid; height: 100dvh;
+    grid-template-columns: 268px minmax(0, 1fr) 348px;
+    grid-template-areas: "side main right";
+  }
+  .topbar{ display: none; }
+
+  /* ============ Sidebar ============ */
+  .sidebar{
+    grid-area: side; background: var(--bg-raise);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .brand{ display: flex; align-items: center; gap: 11px; padding: 18px 18px 14px; }
+  .brand-mark{
+    width: 38px; height: 38px; border-radius: 12px; flex: none;
+    background: linear-gradient(145deg, #12755e, var(--teal) 55%, #093f31);
+    display: grid; place-items: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 6px 16px rgba(0,0,0,.35);
+  }
+  .brand-mark svg{ width: 21px; height: 21px; }
+  .brand-name{ font-weight: 700; font-size: 16px; letter-spacing: -.01em; line-height: 1.15; }
+  .brand-sub{ font-size: 11.5px; color: var(--faint); letter-spacing: .02em; }
+  .sample-pill{
+    margin-left: auto; font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
+    color: var(--amber); border: 1px solid rgba(240,178,62,.35);
+    background: rgba(240,178,62,.08); padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+  }
+  .side-scroll{ overflow-y: auto; padding: 2px 10px 10px; flex: 1; min-height: 0; }
+  .nav{ display: flex; flex-direction: column; gap: 2px; }
+  .nav a{
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 10px; border-radius: 11px; color: var(--muted); font-weight: 500;
+    transition: background .15s, color .15s;
+  }
+  .nav a:hover{ background: rgba(255,255,255,.045); color: var(--text); }
+  .nav a.active{ background: rgba(240,178,62,.12); color: var(--cream); }
+  .nav a.active .ic{ color: var(--amber); }
+  .nav .count{
+    margin-left: auto; font-size: 11px; font-weight: 700; color: var(--amber-ink);
+    background: var(--amber); border-radius: 999px; min-width: 20px; height: 20px;
+    display: grid; place-items: center; padding: 0 6px;
+  }
+  .side-label{
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 20px 8px 7px; font-size: 11px; font-weight: 600;
+    letter-spacing: .09em; text-transform: uppercase; color: var(--faint);
+  }
+  .chat-day{ margin: 10px 8px 4px; font-size: 11.5px; color: var(--faint); }
+  .chat-item{
+    display: flex; align-items: center; gap: 9px; padding: 7px 10px;
+    border-radius: 10px; color: var(--muted); font-weight: 500; width: 100%; text-align: left;
+  }
+  .chat-item:hover{ background: rgba(255,255,255,.045); color: var(--text); }
+  .chat-item .dot{ width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--faint); flex: none; }
+  .side-foot{ border-top: 1px solid var(--border); padding: 12px 14px 14px; }
+  .line-status{ display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); padding: 2px 4px 11px; }
+  .pulse{ width: 8px; height: 8px; border-radius: 50%; background: var(--teal-hi); flex: none; position: relative; }
+  .pulse::after{
+    content: ""; position: absolute; inset: -4px; border-radius: 50%;
+    border: 1px solid var(--teal-hi); opacity: .55; animation: ping 2.2s ease-out infinite;
+  }
+  @keyframes ping{ 0%{ transform: scale(.55); opacity: .7; } 80%, 100%{ transform: scale(1.25); opacity: 0; } }
+  .account{
+    display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+    padding: 9px 10px; border-radius: 13px; border: 1px solid var(--border); background: var(--card);
+    transition: border-color .15s, background .15s;
+  }
+  .account:hover{ border-color: var(--border-2); background: var(--card-2); }
+  .avatar{
+    width: 36px; height: 36px; border-radius: 50%; flex: none; display: grid; place-items: center;
+    background: linear-gradient(145deg, var(--amber), #c9831c); color: var(--amber-ink);
+    font-weight: 700; font-size: 13px; letter-spacing: .02em;
+  }
+  .account .who{ line-height: 1.25; min-width: 0; }
+  .account .who b{ display: block; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .account .who span{ font-size: 12px; color: var(--faint); }
+  .account .ic{ margin-left: auto; color: var(--faint); }
+</style>
+<style>
+  /* ============ Center column ============ */
+  .main{ grid-area: main; overflow-y: auto; min-width: 0; }
+  .center-wrap{ max-width: 760px; margin: 0 auto; padding: 52px 28px 40px; }
+  .greeting{ text-align: center; margin-bottom: 30px; }
+  .greeting .date{ font-size: 12.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--teal-hi); margin: 0 0 12px; }
+  .greeting h1{
+    font-family: var(--font-display); font-weight: 640; letter-spacing: -.01em;
+    font-size: clamp(29px, 4.2vw, 40px); line-height: 1.14; margin: 0 auto 12px; max-width: 560px;
+  }
+  .greeting h1 em{ font-style: italic; color: var(--amber); }
+  .greeting p{ color: var(--muted); margin: 0 auto; max-width: 480px; font-size: 15px; }
+
+  /* Chat thread (appears after the first demo message) */
+  .thread{ display: none; flex-direction: column; gap: 12px; margin: 0 auto 18px; max-width: 680px; }
+  .thread.on{ display: flex; }
+  .msg{ max-width: 82%; padding: 11px 15px; border-radius: 16px; font-size: 14.5px; line-height: 1.5; }
+  .msg.owner{ align-self: flex-end; background: var(--teal); color: #eafaf3; border-bottom-right-radius: 6px; }
+  .msg.pal{ align-self: flex-start; background: var(--card); border: 1px solid var(--border); border-bottom-left-radius: 6px; }
+  .msg.pal .from{ display: block; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--amber); margin-bottom: 4px; }
+
+  /* Composer */
+  .composer{
+    background: var(--inset); border: 1px solid var(--border-2); border-radius: var(--radius-lg);
+    padding: 14px 14px 10px; box-shadow: var(--shadow); max-width: 680px; margin: 0 auto;
+    transition: border-color .15s;
+  }
+  .composer:focus-within{ border-color: rgba(240,178,62,.45); }
+  .composer textarea{
+    width: 100%; border: 0; background: none; color: var(--text); resize: none;
+    font: inherit; font-size: 15.5px; line-height: 1.45; max-height: 140px; padding: 2px 4px 8px;
+  }
+  .composer textarea::placeholder{ color: var(--faint); }
+  .composer textarea:focus{ outline: none; }
+  .composer-row{ display: flex; align-items: center; gap: 6px; }
+  .tool-btn{
+    width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: var(--muted);
+    transition: background .15s, color .15s;
+  }
+  .tool-btn:hover{ background: rgba(255,255,255,.06); color: var(--text); }
+  .tool-btn.listening{ color: var(--amber); background: rgba(240,178,62,.12); }
+  .composer-row .spacer{ flex: 1; }
+  .send-btn{
+    width: 38px; height: 38px; border-radius: 50%; background: var(--amber); color: var(--amber-ink);
+    display: grid; place-items: center; transition: transform .12s, background .15s;
+  }
+  .send-btn:hover{ background: #f7c05c; transform: translateY(-1px); }
+
+  /* Quick-action chips */
+  .chips{ display: flex; gap: 9px; justify-content: center; flex-wrap: wrap; margin: 18px auto 0; max-width: 680px; }
+  .chip{
+    display: inline-flex; align-items: center; gap: 8px; padding: 9px 15px;
+    border: 1px solid var(--border-2); border-radius: 999px; background: var(--card);
+    font-weight: 500; font-size: 13.5px; color: var(--text); white-space: nowrap;
+    transition: border-color .15s, background .15s, transform .12s;
+  }
+  .chip:hover{ border-color: rgba(240,178,62,.5); background: var(--card-2); transform: translateY(-1px); }
+  .chip .ic{ color: var(--amber); }
+  .chip.call{ border-color: rgba(53,199,158,.45); }
+  .chip.call .ic{ color: var(--teal-hi); }
+
+  /* Status line */
+  .status-line{
+    display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 18px;
+    margin: 26px auto 0; max-width: 680px; padding: 10px 18px;
+    border: 1px solid var(--border); border-radius: 999px; background: rgba(255,255,255,.02);
+    font-size: 12.5px; color: var(--muted);
+  }
+  .status-line .item{ display: inline-flex; align-items: center; gap: 7px; }
+  .status-line .ic{ color: var(--faint); }
+
+  /* Today + phone cards under the composer */
+  .home-grid{ display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; max-width: 680px; margin: 26px auto 0; }
+  .card{
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 19px 20px; box-shadow: 0 10px 28px rgba(0,0,0,.28);
+  }
+  .card h2{ font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .ic{ color: var(--amber); }
+  .event{ display: flex; gap: 14px; padding: 10px 0; border-top: 1px solid var(--border); }
+  .event:first-of-type{ border-top: 0; padding-top: 2px; }
+  .event .when{ flex: none; width: 74px; }
+  .event .when b{ display: block; font-size: 14px; }
+  .event .when span{ font-size: 11.5px; color: var(--faint); }
+  .event .what b{ display: block; font-size: 14.5px; font-weight: 600; }
+  .event .what span{ font-size: 13px; color: var(--muted); }
+  .event.tomorrow{ opacity: .78; }
+  .phone-card{ background: linear-gradient(160deg, #10392e, var(--teal) 130%); border-color: rgba(53,199,158,.3); }
+  .phone-card h2{ color: rgba(230,250,240,.65); }
+  .phone-card h2 .ic{ color: var(--teal-hi); }
+  .phone-num{ font-family: var(--font-display); font-size: 25px; font-weight: 640; letter-spacing: .01em; margin: 2px 0 4px; }
+  .phone-card p{ color: rgba(230,250,240,.75); font-size: 13px; margin: 0 0 15px; }
+  .call-btn{
+    display: inline-flex; align-items: center; gap: 9px; background: var(--amber); color: var(--amber-ink);
+    font-weight: 700; font-size: 14px; padding: 10px 18px; border-radius: 999px;
+    transition: transform .12s, background .15s;
+  }
+  .call-btn:hover{ background: #f7c05c; transform: translateY(-1px); }
+  .live-tag{ display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: #b9f4dd; margin-bottom: 10px; }
+
+  /* ============ Right panel ============ */
+  .right{
+    grid-area: right; background: var(--bg-raise); border-left: 1px solid var(--border);
+    overflow-y: auto; padding: 22px 18px 26px; display: flex; flex-direction: column; gap: 22px; min-height: 0;
+  }
+  .panel-head{ display: flex; align-items: center; gap: 9px; margin-bottom: 13px; }
+  .panel-head .ic{ color: var(--amber); }
+  .panel-head h2{ font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; margin: 0; }
+  .panel-head .count{
+    font-size: 11px; font-weight: 700; color: var(--amber-ink); background: var(--amber);
+    border-radius: 999px; min-width: 20px; height: 20px; display: grid; place-items: center; padding: 0 6px;
+  }
+  .job-card{
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 17px 18px; margin-bottom: 12px; transition: border-color .15s;
+  }
+  .job-card:hover{ border-color: var(--border-2); }
+  .job-card h3{ font-size: 15px; font-weight: 650; margin: 0 0 5px; letter-spacing: -.01em; }
+  .job-card p{ font-size: 13.5px; color: var(--muted); margin: 0; }
+  .job-meta{ display: flex; align-items: center; gap: 7px; margin-top: 13px; font-size: 12.5px; color: var(--faint); }
+  .job-meta .add-btn{ margin-left: auto; }
+  .add-btn{
+    background: var(--cream); color: #1c1a12; font-weight: 650; font-size: 13px;
+    padding: 7px 15px; border-radius: 999px; transition: background .15s, transform .12s;
+  }
+  .add-btn:hover{ background: #fff; transform: translateY(-1px); }
+  .add-btn.added{ background: rgba(53,199,158,.16); color: var(--teal-hi); }
+  .approval-card{ border-color: rgba(240,178,62,.32); background: linear-gradient(180deg, rgba(240,178,62,.05), var(--card) 42%); }
+  .approval-card .to{ font-size: 12.5px; color: var(--muted); margin: 0 0 10px; }
+  .draft{
+    background: var(--inset); border: 1px solid var(--border); border-radius: 13px;
+    padding: 12px 14px; font-size: 13.5px; color: #d9e2d9; line-height: 1.55;
+  }
+  .draft b{ color: var(--amber); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .approval-actions{ display: flex; gap: 9px; margin-top: 14px; }
+  .btn-approve{
+    flex: 1; background: var(--amber); color: var(--amber-ink); font-weight: 700; font-size: 14px;
+    padding: 10px 14px; border-radius: 12px; transition: background .15s, transform .12s;
+  }
+  .btn-approve:hover{ background: #f7c05c; transform: translateY(-1px); }
+  .btn-hold{
+    padding: 10px 18px; border-radius: 12px; border: 1px solid var(--border-2);
+    font-weight: 600; font-size: 14px; color: var(--text); transition: background .15s;
+  }
+  .btn-hold:hover{ background: rgba(255,255,255,.05); }
+  .decision-note{
+    display: none; margin-top: 14px; font-size: 13px; padding: 11px 13px; border-radius: 12px;
+    background: rgba(53,199,158,.1); border: 1px solid rgba(53,199,158,.3); color: #c9f2e2;
+  }
+  .decision-note.on{ display: block; }
+  .approval-rule{ font-size: 12px; color: var(--faint); margin: 11px 2px 0; display: flex; gap: 7px; }
+  .approval-rule .ic{ color: var(--faint); margin-top: 1px; }
+
+  /* Mobile menu view (sidebar content as a view) */
+  .menuview{ display: none; }
+  .tabbar{ display: none; }
+
+  /* ============ Mid widths: right panel folds under the center ============ */
+  @media (max-width: 1180px){
+    .shell{ grid-template-columns: 236px minmax(0,1fr); grid-template-areas: "side main" "side right"; grid-template-rows: minmax(0,1fr) auto; }
+    .right{
+      border-left: 0; border-top: 1px solid var(--border); overflow: visible;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start;
+    }
+  }
+
+  /* ============ Phone widths: a real mobile app layout ============ */
+  @media (max-width: 760px){
+    body{ font-size: 14.5px; }
+    .shell{
+      grid-template-columns: minmax(0,1fr);
+      grid-template-rows: auto minmax(0,1fr) auto;
+      grid-template-areas: "top" "stage" "tab";
+    }
+    .topbar{
+      grid-area: top; display: flex; align-items: center; gap: 10px;
+      padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+      background: var(--bg-raise); border-bottom: 1px solid var(--border);
+    }
+    .topbar .brand-mark{ width: 32px; height: 32px; border-radius: 10px; }
+    .topbar .brand-name{ font-size: 15px; }
+    .topbar .avatar{ width: 32px; height: 32px; font-size: 12px; margin-left: auto; }
+    .sidebar{ display: none; }
+    .main, .right{ grid-area: stage; }
+    .main{ overflow-y: auto; }
+    .center-wrap{ padding: 30px 18px 28px; }
+    .greeting{ text-align: left; margin-bottom: 22px; }
+    .greeting h1{ margin-left: 0; }
+    .greeting p{ margin-left: 0; }
+    .chips{ justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
+    .chips::-webkit-scrollbar{ display: none; }
+    .status-line{ justify-content: flex-start; border-radius: var(--radius); }
+    .home-grid{ grid-template-columns: 1fr; }
+    .right{
+      display: none; border-left: 0; padding: 22px 18px 28px; overflow-y: auto;
+    }
+    body[data-view="approvals"] .right{ display: block; }
+    body[data-view="approvals"] .main{ display: none; }
+    body[data-view="menu"] .homeview{ display: none; }
+    body[data-view="menu"] .menuview{ display: block; padding: 22px 18px 28px; max-width: 560px; margin: 0 auto; }
+    .menuview .nav a{ padding: 13px 12px; font-size: 15.5px; border: 1px solid var(--border); background: var(--card); margin-bottom: 8px; }
+    .menuview .account{ margin-top: 18px; }
+    .menuview .line-status{ padding-top: 14px; }
+    .tabbar{
+      grid-area: tab; display: grid; grid-template-columns: repeat(4, 1fr);
+      background: var(--bg-raise); border-top: 1px solid var(--border);
+      padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    }
+    .tab{
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      font-size: 10.5px; font-weight: 600; color: var(--faint); padding: 5px 0 2px; border-radius: 12px;
+      position: relative;
+    }
+    .tab .ic{ width: 22px; height: 22px; }
+    .tab.active{ color: var(--amber); }
+    .tab .badge{
+      position: absolute; top: 0; left: calc(50% + 3px); font-size: 10px; font-weight: 700;
+      color: var(--amber-ink); background: var(--amber); border-radius: 999px;
+      min-width: 17px; height: 17px; display: grid; place-items: center; padding: 0 4px;
+    }
+    .tab .badge.off{ display: none; }
+  }
+</style>
+</head>
+<body data-view="home">
+<div class="shell">
+
+  <!-- Mobile top bar -->
+  <header class="topbar">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="7.5" cy="12" r="2.3" fill="#f0b23e"/><path d="M12.3 8.6a4.8 4.8 0 0 1 0 6.8" stroke="#f6efdd" stroke-width="1.9" stroke-linecap="round"/><path d="M15.4 5.8a8.8 8.8 0 0 1 0 12.4" stroke="#f6efdd" stroke-width="1.9" stroke-linecap="round" opacity=".65"/></svg>
+    </span>
+    <span class="brand-name">My Work Pal</span>
+    <span class="sample-pill">Sample data</span>
+    <span class="avatar" aria-hidden="true">DO</span>
+  </header>
+
+  <!-- ============ Sidebar (desktop / tablet) ============ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="7.5" cy="12" r="2.3" fill="#f0b23e"/><path d="M12.3 8.6a4.8 4.8 0 0 1 0 6.8" stroke="#f6efdd" stroke-width="1.9" stroke-linecap="round"/><path d="M15.4 5.8a8.8 8.8 0 0 1 0 12.4" stroke="#f6efdd" stroke-width="1.9" stroke-linecap="round" opacity=".65"/></svg>
+      </span>
+      <span>
+        <span class="brand-name">My Work Pal</span><br>
+        <span class="brand-sub">by JobOS Labs</span>
+      </span>
+      <span class="sample-pill">Sample data</span>
+    </div>
+    <div class="side-scroll">
+      <nav class="nav" aria-label="Main">
+        <a href="#" class="active"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>New</a>
+        <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a>
+        <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Library</a>
+        <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Client messages<span class="count" data-approval-count>1</span></a>
+        <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M9 7V3M15 7V3"/><path d="M7 7h10v4a5 5 0 0 1-10 0V7z"/><path d="M12 16v5"/></svg>Connected apps</a>
+        <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Vault</a>
+        <a href="#"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M17 3.5a4 4 0 0 1 0 7"/><path d="M21.5 21v-2a4 4 0 0 0-3-3.85"/></svg>Contacts</a>
+      </nav>
+      <div class="side-label">Chats <svg class="ic sm" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+      <div class="chat-day">Today</div>
+      <button class="chat-item" type="button"><span class="dot"></span>Morning brief</button>
+      <div class="chat-day">Yesterday</div>
+      <button class="chat-item" type="button"><span class="dot"></span>Get started</button>
+    </div>
+    <div class="side-foot">
+      <div class="line-status"><span class="pulse"></span>WorkPal line is live</div>
+      <button class="account" type="button">
+        <span class="avatar" aria-hidden="true">DO</span>
+        <span class="who"><b>Demo Owner</b><span>Sample Co · Owner</span></span>
+        <svg class="ic" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ============ Center ============ -->
+  <main class="main">
+    <div class="homeview">
+      <div class="center-wrap">
+        <div class="greeting">
+          <p class="date" id="today-line">Today · Sample Co</p>
+          <h1>Good morning. Point <em>WorkPal</em> at the busywork.</h1>
+          <p>Your brief is ready, and one draft is waiting for your yes. Ask below, or call the line and talk it through.</p>
+        </div>
+
+        <div class="thread" id="thread" aria-live="polite"></div>
+
+        <form class="composer" id="composer">
+          <textarea id="ask" rows="2" placeholder="Ask anything…"></textarea>
+          <div class="composer-row">
+            <button class="tool-btn" type="button" aria-label="Attach"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+            <span class="spacer"></span>
+            <button class="tool-btn" id="mic-btn" type="button" aria-label="Voice input"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg></button>
+            <button class="send-btn" type="submit" aria-label="Send"><svg class="ic" viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
+          </div>
+        </form>
+
+        <div class="chips">
+          <a class="chip call" href="tel:+12402316158"><svg class="ic" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call WorkPal</a>
+          <button class="chip" type="button" data-fill="Plan my day around the Acme sync and the Beta scoping call."><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Plan today</button>
+          <button class="chip" type="button" data-fill="Draft a follow-up to John Tan at Acme Corp about the proposal and the NDA."><svg class="ic" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Draft a follow-up</button>
+          <button class="chip" type="button" data-fill="Check my inbox and flag anything urgent."><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Check my inbox</button>
+        </div>
+
+        <div class="status-line" role="status">
+          <span class="item"><span class="pulse"></span>Phone line live · +1 240 231 6158</span>
+          <span class="item"><svg class="ic sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Quiet hours 9:00 PM – 7:00 AM</span>
+          <span class="item"><svg class="ic sm" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Morning call 8:00 AM</span>
+        </div>
+
+        <div class="home-grid">
+          <section class="card" aria-label="Today">
+            <h2><svg class="ic sm" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Today</h2>
+            <div class="event">
+              <div class="when"><b>10:00 AM</b><span>1 hour</span></div>
+              <div class="what"><b>Acme Corp — procurement sync</b><span>Video call · with John Tan · NDA countersignature is the open item</span></div>
+            </div>
+            <div class="event">
+              <div class="when"><b>1:30 PM</b><span>45 min</span></div>
+              <div class="what"><b>Beta — proposal scoping</b><span>Call · scope the proposal before Friday's draft</span></div>
+            </div>
+            <div class="event tomorrow">
+              <div class="when"><b>Tomorrow</b><span>9:00 AM</span></div>
+              <div class="what"><b>Gamma Inc — kickoff</b><span>First meeting · WorkPal has the brief ready</span></div>
+            </div>
+          </section>
+          <section class="card phone-card" aria-label="Talk to WorkPal">
+            <h2><svg class="ic sm" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Talk to WorkPal</h2>
+            <span class="live-tag"><span class="pulse"></span>Live now — WorkPal answers</span>
+            <div class="phone-num">+1 240 231 6158</div>
+            <p>The real pilot line. Call it and WorkPal picks up, briefs you, and takes the next job by voice.</p>
+            <a class="call-btn" href="tel:+12402316158"><svg class="ic" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call now</a>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile menu view -->
+    <div class="menuview">
+      <nav class="nav" aria-label="Menu">
+        <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>New</a>
+        <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a>
+        <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Library</a>
+        <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Client messages</a>
+        <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M9 7V3M15 7V3"/><path d="M7 7h10v4a5 5 0 0 1-10 0V7z"/><path d="M12 16v5"/></svg>Connected apps</a>
+        <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Vault</a>
+        <a href="#"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M17 3.5a4 4 0 0 1 0 7"/><path d="M21.5 21v-2a4 4 0 0 0-3-3.85"/></svg>Contacts</a>
+      </nav>
+      <div class="line-status"><span class="pulse"></span>WorkPal line is live · Quiet hours 9:00 PM – 7:00 AM</div>
+      <button class="account" type="button">
+        <span class="avatar" aria-hidden="true">DO</span>
+        <span class="who"><b>Demo Owner</b><span>Sample Co · Owner</span></span>
+        <svg class="ic" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+      </button>
+    </div>
+  </main>
+
+  <!-- ============ Right panel ============ -->
+  <aside class="right">
+    <section aria-label="Needs your approval">
+      <div class="panel-head">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        <h2>Needs your approval</h2>
+        <span class="count" data-approval-count>1</span>
+      </div>
+      <article class="job-card approval-card">
+        <h3>Follow-up email to John Tan at Acme Corp</h3>
+        <p class="to">Drafted by WorkPal · about the proposal and the signed NDA</p>
+        <div class="draft"><b>Draft</b>“Hi John, following up on our proposal and the countersigned NDA. Both are with your team — happy to walk through either on today's sync. Thanks, Sample Co.”</div>
+        <div class="approval-actions" id="approval-actions">
+          <button class="btn-approve" id="btn-approve" type="button">Approve &amp; send</button>
+          <button class="btn-hold" id="btn-hold" type="button">Hold</button>
+        </div>
+        <div class="decision-note" id="decision-note" role="status"></div>
+        <p class="approval-rule"><svg class="ic sm" viewBox="0 0 24 24"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/><path d="m9 11.5 2 2 4-4"/></svg>WorkPal reads every draft back and waits for your yes. Nothing sends without it.</p>
+      </article>
+    </section>
+
+    <section aria-label="Suggested jobs">
+      <div class="panel-head">
+        <svg class="ic" viewBox="0 0 24 24"><path d="M9.5 15.5 2 22l6.5-7.5"/><path d="M14.5 8.5 22 2l-6.5 7.5"/><circle cx="12" cy="12" r="3.2"/></svg>
+        <h2>Suggested jobs</h2>
+      </div>
+      <article class="job-card">
+        <h3>Daily inbox tidy</h3>
+        <p>Labels and archives newsletters and promos each morning, so real mail stands out.</p>
+        <div class="job-meta"><svg class="ic sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Job · Daily
+          <button class="add-btn" type="button" data-add>Add job</button></div>
+      </article>
+      <article class="job-card">
+        <h3>Weekly client check-in</h3>
+        <p>Rounds up clients who have gone quiet and drafts a check-in for your approval every Friday.</p>
+        <div class="job-meta"><svg class="ic sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Job · Weekly
+          <button class="add-btn" type="button" data-add>Add job</button></div>
+      </article>
+    </section>
+  </aside>
+
+  <!-- Mobile bottom tab bar -->
+  <nav class="tabbar" aria-label="App">
+    <button class="tab active" type="button" data-set-view="home">
+      <svg class="ic" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22v-8h6v8"/></svg>Home
+    </button>
+    <button class="tab" type="button" data-set-view="approvals">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>Approvals
+      <span class="badge" id="tab-badge">1</span>
+    </button>
+    <a class="tab" href="tel:+12402316158">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call
+    </a>
+    <button class="tab" type="button" data-set-view="menu">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu
+    </button>
+  </nav>
+</div>
+
+<script>
+  // Today's date in the greeting eyebrow
+  (function(){
+    var el = document.getElementById('today-line');
+    var d = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    el.textContent = d + ' · Sample Co';
+  })();
+
+  // Mobile view switching (bottom tab bar)
+  document.querySelectorAll('[data-set-view]').forEach(function(tab){
+    tab.addEventListener('click', function(){
+      document.body.dataset.view = tab.dataset.setView;
+      document.querySelectorAll('.tab[data-set-view]').forEach(function(t){
+        t.classList.toggle('active', t === tab);
+      });
+      window.scrollTo(0, 0);
+    });
+  });
+
+  // Approval card: record the choice on screen only — nothing is sent
+  (function(){
+    var note = document.getElementById('decision-note');
+    var actions = document.getElementById('approval-actions');
+    function decide(text){
+      note.textContent = text;
+      note.classList.add('on');
+      actions.style.display = 'none';
+      document.querySelectorAll('[data-approval-count]').forEach(function(c){ c.style.display = 'none'; });
+      var badge = document.getElementById('tab-badge');
+      if (badge) badge.classList.add('off');
+    }
+    document.getElementById('btn-approve').addEventListener('click', function(){
+      decide('You approved this draft. Demo screen only — nothing was sent.');
+    });
+    document.getElementById('btn-hold').addEventListener('click', function(){
+      decide('You put this draft on hold. Demo screen only — nothing was sent.');
+    });
+  })();
+
+  // Suggested jobs: Add toggles to Added, on screen only
+  document.querySelectorAll('[data-add]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var added = btn.classList.toggle('added');
+      btn.textContent = added ? 'Added ✓' : 'Add job';
+    });
+  });
+
+  // Quick-action chips fill the composer
+  var ask = document.getElementById('ask');
+  document.querySelectorAll('[data-fill]').forEach(function(chip){
+    chip.addEventListener('click', function(){
+      ask.value = chip.dataset.fill;
+      ask.focus();
+    });
+  });
+
+  // Mic button: visual listening state (demo)
+  var mic = document.getElementById('mic-btn');
+  mic.addEventListener('click', function(){
+    var on = mic.classList.toggle('listening');
+    ask.placeholder = on ? 'Listening… (demo)' : 'Ask anything…';
+    if (on) ask.focus();
+  });
+
+  // Composer: demo send — echoes the message and a WorkPal reply, sends nothing anywhere
+  document.getElementById('composer').addEventListener('submit', function(e){
+    e.preventDefault();
+    var text = ask.value.trim();
+    if (!text) return;
+    var thread = document.getElementById('thread');
+    thread.classList.add('on');
+    var mine = document.createElement('div');
+    mine.className = 'msg owner';
+    mine.textContent = text;
+    thread.appendChild(mine);
+    ask.value = '';
+    setTimeout(function(){
+      var pal = document.createElement('div');
+      pal.className = 'msg pal';
+      var from = document.createElement('span');
+      from.className = 'from';
+      from.textContent = 'WorkPal';
+      pal.appendChild(from);
+      pal.appendChild(document.createTextNode(
+        'On it. I will draft that and put it in your approval queue — nothing goes out without your yes. (Demo reply: this screen is not wired to the live system yet.)'
+      ));
+      thread.appendChild(pal);
+      pal.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 550);
+  });
+  ask.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      document.getElementById('composer').requestSubmit();
+    }
+  });
+</script>
+</body>
+</html>
