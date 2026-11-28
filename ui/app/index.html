@@ -8,9 +8,28 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  // Theme init: runs before first paint so a saved choice never flashes.
+  // Mode: dark (default) / light / system. Accent: sabi (default) / ocean / grape / ember.
+  (function(){
+    var mode = 'dark', accent = 'sabi';
+    try {
+      mode = localStorage.getItem('mwp-theme-mode') || 'dark';
+      accent = localStorage.getItem('mwp-accent') || 'sabi';
+    } catch (e) {}
+    var dark = mode === 'system'
+      ? window.matchMedia('(prefers-color-scheme: dark)').matches
+      : mode !== 'light';
+    var root = document.documentElement;
+    root.dataset.theme = dark ? 'dark' : 'light';
+    root.dataset.mode = mode;
+    root.dataset.accent = accent;
+  })();
+</script>
 <style>
   /* ============ Sabi palette, adapted to a dark professional shell ============ */
   :root{
+    color-scheme: dark;
     --bg:        #090e0b;   /* app background, near-black green */
     --bg-raise:  #0d130f;   /* sidebar / right panel */
     --card:      #121a15;   /* card surface */
@@ -24,9 +43,23 @@
     --teal:      #0e6b57;   /* Sabi deep teal */
     --teal-hi:   #35c79e;   /* live accents on dark */
     --amber:     #f0b23e;   /* Sabi amber */
+    --amber-hi:  #f7c05c;   /* accent hover */
     --amber-ink: #201503;   /* text on amber */
+    --brand-hi:  #12755e;   /* brand mark gradient, light stop */
+    --brand-lo:  #093f31;   /* brand mark gradient, deep stop */
+    --phone-1:   #10392e;   /* phone card gradient, light stop */
+    --accent-deep: #c9831c; /* avatar gradient, deep stop */
     --cream:     #f6efdd;
     --danger:    #e07856;
+    --hover:     rgba(255, 255, 255, .045);
+    --hover-2:   rgba(255, 255, 255, .06);
+    --hover-soft: rgba(255, 255, 255, .02);
+    --shadow-card: 0 10px 28px rgba(0, 0, 0, .28);
+    --draft-text: #d9e2d9;
+    --note-text: #c9f2e2;
+    --add-bg:    #f6efdd;   /* "Add job" button */
+    --add-ink:   #1c1a12;
+    --add-bg-hover: #ffffff;
     --radius:    18px;
     --radius-lg: 22px;
     --shadow:    0 18px 44px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.35);
@@ -63,7 +96,7 @@
   .brand{ display: flex; align-items: center; gap: 11px; padding: 18px 18px 14px; }
   .brand-mark{
     width: 38px; height: 38px; border-radius: 12px; flex: none;
-    background: linear-gradient(145deg, #12755e, var(--teal) 55%, #093f31);
+    background: linear-gradient(145deg, var(--brand-hi), var(--teal) 55%, var(--brand-lo));
     display: grid; place-items: center;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 6px 16px rgba(0,0,0,.35);
   }
@@ -72,8 +105,8 @@
   .brand-sub{ font-size: 11.5px; color: var(--faint); letter-spacing: .02em; }
   .sample-pill{
     margin-left: auto; font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
-    color: var(--amber); border: 1px solid rgba(240,178,62,.35);
-    background: rgba(240,178,62,.08); padding: 3px 8px; border-radius: 999px; white-space: nowrap;
+    color: var(--amber); border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
+    background: color-mix(in srgb, var(--amber) 8%, transparent); padding: 3px 8px; border-radius: 999px; white-space: nowrap;
   }
   .side-scroll{ overflow-y: auto; padding: 2px 10px 10px; flex: 1; min-height: 0; }
   .nav{ display: flex; flex-direction: column; gap: 2px; }
@@ -82,8 +115,8 @@
     padding: 9px 10px; border-radius: 11px; color: var(--muted); font-weight: 500;
     transition: background .15s, color .15s;
   }
-  .nav a:hover{ background: rgba(255,255,255,.045); color: var(--text); }
-  .nav a.active{ background: rgba(240,178,62,.12); color: var(--cream); }
+  .nav a:hover{ background: var(--hover); color: var(--text); }
+  .nav a.active{ background: color-mix(in srgb, var(--amber) 12%, transparent); color: var(--text); }
   .nav a.active .ic{ color: var(--amber); }
   .nav .count{
     margin-left: auto; font-size: 11px; font-weight: 700; color: var(--amber-ink);
@@ -100,7 +133,7 @@
     display: flex; align-items: center; gap: 9px; padding: 7px 10px;
     border-radius: 10px; color: var(--muted); font-weight: 500; width: 100%; text-align: left;
   }
-  .chat-item:hover{ background: rgba(255,255,255,.045); color: var(--text); }
+  .chat-item:hover{ background: var(--hover); color: var(--text); }
   .chat-item .dot{ width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--faint); flex: none; }
   .side-foot{ border-top: 1px solid var(--border); padding: 12px 14px 14px; }
   .line-status{ display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); padding: 2px 4px 11px; }
@@ -118,13 +151,90 @@
   .account:hover{ border-color: var(--border-2); background: var(--card-2); }
   .avatar{
     width: 36px; height: 36px; border-radius: 50%; flex: none; display: grid; place-items: center;
-    background: linear-gradient(145deg, var(--amber), #c9831c); color: var(--amber-ink);
+    background: linear-gradient(145deg, var(--amber), var(--accent-deep)); color: var(--amber-ink);
     font-weight: 700; font-size: 13px; letter-spacing: .02em;
   }
   .account .who{ line-height: 1.25; min-width: 0; }
   .account .who b{ display: block; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .account .who span{ font-size: 12px; color: var(--faint); }
   .account .ic{ margin-left: auto; color: var(--faint); }
+
+  /* ============ Accent schemes (owner's choice, applied live) ============ */
+  html[data-accent="ocean"]{
+    --teal: #155e8c; --teal-hi: #4fb0e5;
+    --amber: #45c4d8; --amber-hi: #6fd3e5; --amber-ink: #06222b;
+    --brand-hi: #1b6ca8; --brand-lo: #0b3556; --phone-1: #0e2f47; --accent-deep: #2a8ba3;
+  }
+  html[data-accent="grape"]{
+    --teal: #5b3a8e; --teal-hi: #b493f2;
+    --amber: #f2789f; --amber-hi: #f79cbb; --amber-ink: #2b0a18;
+    --brand-hi: #6d4aa5; --brand-lo: #38205e; --phone-1: #2c1e47; --accent-deep: #c24e78;
+  }
+  html[data-accent="ember"]{
+    --teal: #8a3b2e; --teal-hi: #eda184;
+    --amber: #e8b34b; --amber-hi: #f0c56e; --amber-ink: #26130a;
+    --brand-hi: #a5503c; --brand-lo: #57241a; --phone-1: #472219; --accent-deep: #b97f22;
+  }
+
+  /* ============ Light theme ============ */
+  html[data-theme="light"]{
+    color-scheme: light;
+    --bg:        #f2eee3;
+    --bg-raise:  #faf8f1;
+    --card:      #fffdf7;
+    --card-2:    #f7f3e8;
+    --inset:     #efe9da;
+    --border:    rgba(24, 48, 36, .12);
+    --border-2:  rgba(24, 48, 36, .24);
+    --text:      #17251c;
+    --muted:     #5b6c5f;
+    --faint:     #7e8d7e;
+    --teal-hi:   #0d8563;   /* deepened so live accents read on light surfaces */
+    --hover:     rgba(18, 43, 32, .05);
+    --hover-2:   rgba(18, 43, 32, .07);
+    --hover-soft: rgba(18, 43, 32, .03);
+    --shadow:    0 18px 44px rgba(31, 51, 38, .16), 0 2px 8px rgba(31, 51, 38, .10);
+    --shadow-card: 0 10px 28px rgba(31, 51, 38, .10);
+    --draft-text: #2c3a30;
+    --note-text: #0d5c43;
+    --add-bg:    #17352a;
+    --add-ink:   #f6efdd;
+    --add-bg-hover: #1f4a3a;
+  }
+  html[data-theme="light"][data-accent="ocean"]{ --teal-hi: #1b7fb8; }
+  html[data-theme="light"][data-accent="grape"]{ --teal-hi: #7a4fc0; }
+  html[data-theme="light"][data-accent="ember"]{ --teal-hi: #c05a36; }
+
+  /* ============ Appearance controls ============ */
+  .appearance{ padding: 2px 8px 6px; }
+  .seg{
+    display: flex; gap: 2px; padding: 3px;
+    background: var(--inset); border: 1px solid var(--border); border-radius: 999px;
+  }
+  .seg button{
+    flex: 1; padding: 6px 2px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 600; color: var(--muted); white-space: nowrap;
+    transition: background .15s, color .15s;
+  }
+  .seg button:hover{ color: var(--text); }
+  .seg button.active{ background: var(--card-2); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.28); }
+  .swatches{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 9px; }
+  .swatch{
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    padding: 5px 0 4px; border-radius: 10px;
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    transition: background .15s, color .15s;
+  }
+  .swatch:hover{ background: var(--hover); color: var(--text); }
+  .swatch .sw{
+    width: 25px; height: 25px; border-radius: 50%; flex: none;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.25);
+    outline: 2px solid transparent; outline-offset: 2px;
+  }
+  .swatch.active{ color: var(--text); }
+  .swatch.active .sw{ outline-color: var(--text); }
+  .menuview .appearance{ padding: 2px 0 6px; }
+  .menuview .seg button{ font-size: 12.5px; padding: 8px 2px; }
 </style>
 <style>
   /* ============ Center column ============ */
@@ -153,7 +263,7 @@
     padding: 14px 14px 10px; box-shadow: var(--shadow); max-width: 680px; margin: 0 auto;
     transition: border-color .15s;
   }
-  .composer:focus-within{ border-color: rgba(240,178,62,.45); }
+  .composer:focus-within{ border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
   .composer textarea{
     width: 100%; border: 0; background: none; color: var(--text); resize: none;
     font: inherit; font-size: 15.5px; line-height: 1.45; max-height: 140px; padding: 2px 4px 8px;
@@ -165,14 +275,14 @@
     width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: var(--muted);
     transition: background .15s, color .15s;
   }
-  .tool-btn:hover{ background: rgba(255,255,255,.06); color: var(--text); }
-  .tool-btn.listening{ color: var(--amber); background: rgba(240,178,62,.12); }
+  .tool-btn:hover{ background: var(--hover-2); color: var(--text); }
+  .tool-btn.listening{ color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); }
   .composer-row .spacer{ flex: 1; }
   .send-btn{
     width: 38px; height: 38px; border-radius: 50%; background: var(--amber); color: var(--amber-ink);
     display: grid; place-items: center; transition: transform .12s, background .15s;
   }
-  .send-btn:hover{ background: #f7c05c; transform: translateY(-1px); }
+  .send-btn:hover{ background: var(--amber-hi); transform: translateY(-1px); }
 
   /* Quick-action chips */
   .chips{ display: flex; gap: 9px; justify-content: center; flex-wrap: wrap; margin: 18px auto 0; max-width: 680px; }
@@ -182,16 +292,16 @@
     font-weight: 500; font-size: 13.5px; color: var(--text); white-space: nowrap;
     transition: border-color .15s, background .15s, transform .12s;
   }
-  .chip:hover{ border-color: rgba(240,178,62,.5); background: var(--card-2); transform: translateY(-1px); }
+  .chip:hover{ border-color: color-mix(in srgb, var(--amber) 50%, transparent); background: var(--card-2); transform: translateY(-1px); }
   .chip .ic{ color: var(--amber); }
-  .chip.call{ border-color: rgba(53,199,158,.45); }
+  .chip.call{ border-color: color-mix(in srgb, var(--teal-hi) 45%, transparent); }
   .chip.call .ic{ color: var(--teal-hi); }
 
   /* Status line */
   .status-line{
     display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 18px;
     margin: 26px auto 0; max-width: 680px; padding: 10px 18px;
-    border: 1px solid var(--border); border-radius: 999px; background: rgba(255,255,255,.02);
+    border: 1px solid var(--border); border-radius: 999px; background: var(--hover-soft);
     font-size: 12.5px; color: var(--muted);
   }
   .status-line .item{ display: inline-flex; align-items: center; gap: 7px; }
@@ -201,7 +311,7 @@
   .home-grid{ display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; max-width: 680px; margin: 26px auto 0; }
   .card{
     background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
-    padding: 19px 20px; box-shadow: 0 10px 28px rgba(0,0,0,.28);
+    padding: 19px 20px; box-shadow: var(--shadow-card);
   }
   .card h2{ font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
   .card h2 .ic{ color: var(--amber); }
@@ -213,7 +323,7 @@
   .event .what b{ display: block; font-size: 14.5px; font-weight: 600; }
   .event .what span{ font-size: 13px; color: var(--muted); }
   .event.tomorrow{ opacity: .78; }
-  .phone-card{ background: linear-gradient(160deg, #10392e, var(--teal) 130%); border-color: rgba(53,199,158,.3); }
+  .phone-card{ background: linear-gradient(160deg, var(--phone-1), var(--teal) 130%); border-color: color-mix(in srgb, var(--teal-hi) 30%, transparent); }
   .phone-card h2{ color: rgba(230,250,240,.65); }
   .phone-card h2 .ic{ color: var(--teal-hi); }
   .phone-num{ font-family: var(--font-display); font-size: 25px; font-weight: 640; letter-spacing: .01em; margin: 2px 0 4px; }
@@ -223,8 +333,47 @@
     font-weight: 700; font-size: 14px; padding: 10px 18px; border-radius: 999px;
     transition: transform .12s, background .15s;
   }
-  .call-btn:hover{ background: #f7c05c; transform: translateY(-1px); }
+  .call-btn:hover{ background: var(--amber-hi); transform: translateY(-1px); }
   .live-tag{ display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: #b9f4dd; margin-bottom: 10px; }
+  [hidden]{ display: none !important; }
+
+  /* In-app call (primary) */
+  .talk-btn{
+    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
+    background: var(--amber); color: var(--amber-ink);
+    font-weight: 700; font-size: 15.5px; padding: 13px 18px; border-radius: 999px;
+    box-shadow: 0 8px 20px rgba(0,0,0,.25);
+    transition: transform .12s, background .15s;
+  }
+  .talk-btn:hover{ background: var(--amber-hi); transform: translateY(-1px); }
+  .talk-btn .ic{ width: 21px; height: 21px; }
+  .call-hint{ margin: 10px 0 0; }
+  .call-live{
+    display: flex; align-items: center; gap: 9px;
+    background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.16);
+    border-radius: 999px; padding: 7px 7px 7px 14px;
+  }
+  .call-status{ font-size: 13.5px; font-weight: 600; color: #eafaf3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .call-timer{ font-size: 13px; color: rgba(230,250,240,.75); font-variant-numeric: tabular-nums; }
+  .end-btn{
+    margin-left: auto; flex: none; background: var(--danger); color: #fff;
+    font-weight: 700; font-size: 13px; padding: 8px 15px; border-radius: 999px;
+    transition: filter .15s, transform .12s;
+  }
+  .end-btn:hover{ filter: brightness(1.1); transform: translateY(-1px); }
+
+  /* Call by number (secondary) */
+  .by-number{ margin-top: 17px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,.14); }
+  .by-label{
+    display: block; font-size: 11px; font-weight: 700; letter-spacing: .09em;
+    text-transform: uppercase; color: rgba(230,250,240,.55); margin-bottom: 2px;
+  }
+  .by-number .phone-num{ font-size: 22px; margin: 0 0 2px; }
+  .call-btn.ghost{
+    background: transparent; border: 1px solid rgba(255,255,255,.42); color: #eef7f0; margin-top: 9px;
+  }
+  .call-btn.ghost:hover{ background: rgba(255,255,255,.1); }
+  .call-note{ margin: 15px 0 0; font-size: 12.5px; color: rgba(230,250,240,.68); }
 
   /* ============ Right panel ============ */
   .right{
@@ -248,16 +397,16 @@
   .job-meta{ display: flex; align-items: center; gap: 7px; margin-top: 13px; font-size: 12.5px; color: var(--faint); }
   .job-meta .add-btn{ margin-left: auto; }
   .add-btn{
-    background: var(--cream); color: #1c1a12; font-weight: 650; font-size: 13px;
+    background: var(--add-bg); color: var(--add-ink); font-weight: 650; font-size: 13px;
     padding: 7px 15px; border-radius: 999px; transition: background .15s, transform .12s;
   }
-  .add-btn:hover{ background: #fff; transform: translateY(-1px); }
-  .add-btn.added{ background: rgba(53,199,158,.16); color: var(--teal-hi); }
-  .approval-card{ border-color: rgba(240,178,62,.32); background: linear-gradient(180deg, rgba(240,178,62,.05), var(--card) 42%); }
+  .add-btn:hover{ background: var(--add-bg-hover); transform: translateY(-1px); }
+  .add-btn.added{ background: color-mix(in srgb, var(--teal-hi) 16%, transparent); color: var(--teal-hi); }
+  .approval-card{ border-color: color-mix(in srgb, var(--amber) 32%, transparent); background: linear-gradient(180deg, color-mix(in srgb, var(--amber) 5%, transparent), var(--card) 42%); }
   .approval-card .to{ font-size: 12.5px; color: var(--muted); margin: 0 0 10px; }
   .draft{
     background: var(--inset); border: 1px solid var(--border); border-radius: 13px;
-    padding: 12px 14px; font-size: 13.5px; color: #d9e2d9; line-height: 1.55;
+    padding: 12px 14px; font-size: 13.5px; color: var(--draft-text); line-height: 1.55;
   }
   .draft b{ color: var(--amber); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; display: block; margin-bottom: 5px; }
   .approval-actions{ display: flex; gap: 9px; margin-top: 14px; }
@@ -265,15 +414,15 @@
     flex: 1; background: var(--amber); color: var(--amber-ink); font-weight: 700; font-size: 14px;
     padding: 10px 14px; border-radius: 12px; transition: background .15s, transform .12s;
   }
-  .btn-approve:hover{ background: #f7c05c; transform: translateY(-1px); }
+  .btn-approve:hover{ background: var(--amber-hi); transform: translateY(-1px); }
   .btn-hold{
     padding: 10px 18px; border-radius: 12px; border: 1px solid var(--border-2);
     font-weight: 600; font-size: 14px; color: var(--text); transition: background .15s;
   }
-  .btn-hold:hover{ background: rgba(255,255,255,.05); }
+  .btn-hold:hover{ background: var(--hover-2); }
   .decision-note{
     display: none; margin-top: 14px; font-size: 13px; padding: 11px 13px; border-radius: 12px;
-    background: rgba(53,199,158,.1); border: 1px solid rgba(53,199,158,.3); color: #c9f2e2;
+    background: color-mix(in srgb, var(--teal-hi) 10%, transparent); border: 1px solid color-mix(in srgb, var(--teal-hi) 30%, transparent); color: var(--note-text);
   }
   .decision-note.on{ display: block; }
   .approval-rule{ font-size: 12px; color: var(--faint); margin: 11px 2px 0; display: flex; gap: 7px; }
@@ -356,7 +505,7 @@
   <!-- Mobile top bar -->
   <header class="topbar">
     <span class="brand-mark" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none"><circle cx="7.5" cy="12" r="2.3" fill="#f0b23e"/><path d="M12.3 8.6a4.8 4.8 0 0 1 0 6.8" stroke="#f6efdd" stroke-width="1.9" stroke-linecap="round"/><path d="M15.4 5.8a8.8 8.8 0 0 1 0 12.4" stroke="#f6efdd" stroke-width="1.9" stroke-linecap="round" opacity=".65"/></svg>
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="7.5" cy="12" r="2.3" style="fill:var(--amber)"/><path d="M12.3 8.6a4.8 4.8 0 0 1 0 6.8" style="stroke:var(--cream)" stroke-width="1.9" stroke-linecap="round"/><path d="M15.4 5.8a8.8 8.8 0 0 1 0 12.4" style="stroke:var(--cream)" stroke-width="1.9" stroke-linecap="round" opacity=".65"/></svg>
     </span>
     <span class="brand-name">My Work Pal</span>
     <span class="sample-pill">Sample data</span>
@@ -367,7 +516,7 @@
   <aside class="sidebar">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none"><circle cx="7.5" cy="12" r="2.3" fill="#f0b23e"/><path d="M12.3 8.6a4.8 4.8 0 0 1 0 6.8" stroke="#f6efdd" stroke-width="1.9" stroke-linecap="round"/><path d="M15.4 5.8a8.8 8.8 0 0 1 0 12.4" stroke="#f6efdd" stroke-width="1.9" stroke-linecap="round" opacity=".65"/></svg>
+        <svg viewBox="0 0 24 24" fill="none"><circle cx="7.5" cy="12" r="2.3" style="fill:var(--amber)"/><path d="M12.3 8.6a4.8 4.8 0 0 1 0 6.8" style="stroke:var(--cream)" stroke-width="1.9" stroke-linecap="round"/><path d="M15.4 5.8a8.8 8.8 0 0 1 0 12.4" style="stroke:var(--cream)" stroke-width="1.9" stroke-linecap="round" opacity=".65"/></svg>
       </span>
       <span>
         <span class="brand-name">My Work Pal</span><br>
@@ -390,6 +539,20 @@
       <button class="chat-item" type="button"><span class="dot"></span>Morning brief</button>
       <div class="chat-day">Yesterday</div>
       <button class="chat-item" type="button"><span class="dot"></span>Get started</button>
+      <div class="side-label">Appearance</div>
+      <div class="appearance" data-appearance>
+        <div class="seg" role="group" aria-label="Theme">
+          <button type="button" data-mode="light">Light</button>
+          <button type="button" data-mode="dark">Dark</button>
+          <button type="button" data-mode="system">Match device</button>
+        </div>
+        <div class="swatches" role="group" aria-label="Accent colour">
+          <button type="button" class="swatch" data-accent="sabi"><span class="sw" style="background:linear-gradient(135deg,#0e6b57 50%,#f0b23e 50%)"></span>Sabi</button>
+          <button type="button" class="swatch" data-accent="ocean"><span class="sw" style="background:linear-gradient(135deg,#155e8c 50%,#45c4d8 50%)"></span>Ocean</button>
+          <button type="button" class="swatch" data-accent="grape"><span class="sw" style="background:linear-gradient(135deg,#5b3a8e 50%,#f2789f 50%)"></span>Grape</button>
+          <button type="button" class="swatch" data-accent="ember"><span class="sw" style="background:linear-gradient(135deg,#8a3b2e 50%,#e8b34b 50%)"></span>Ember</button>
+        </div>
+      </div>
     </div>
     <div class="side-foot">
       <div class="line-status"><span class="pulse"></span>WorkPal line is live</div>
@@ -455,9 +618,21 @@
           <section class="card phone-card" aria-label="Talk to WorkPal">
             <h2><svg class="ic sm" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Talk to WorkPal</h2>
             <span class="live-tag"><span class="pulse"></span>Live now — WorkPal answers</span>
-            <div class="phone-num">+1 240 231 6158</div>
-            <p>The real pilot line. Call it and WorkPal picks up, briefs you, and takes the next job by voice.</p>
-            <a class="call-btn" href="tel:+12402316158"><svg class="ic" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call now</a>
+            <button class="talk-btn" id="btn-talk" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg>Talk to WorkPal</button>
+            <div class="call-live" id="call-live" role="status" hidden>
+              <span class="pulse"></span>
+              <span class="call-status" id="call-status">Connecting…</span>
+              <span class="call-timer" id="call-timer">0:00</span>
+              <button class="end-btn" id="btn-end-call" type="button">End call</button>
+            </div>
+            <p class="call-hint" id="call-hint">Press and talk, right here in the app — no dialling, just speak and WorkPal answers.</p>
+            <div class="by-number">
+              <span class="by-label">Or call by number</span>
+              <div class="phone-num">+1 240 231 6158</div>
+              <p>The real pilot line. Call it and WorkPal picks up, briefs you, and takes the next job by voice.</p>
+              <a class="call-btn ghost" href="tel:+12402316158"><svg class="ic" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call the number</a>
+            </div>
+            <p class="call-note">In-app calls ride the internet and cost less. Away from the app? WorkPal can call your phone instead.</p>
           </section>
         </div>
       </div>
@@ -474,6 +649,20 @@
         <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Vault</a>
         <a href="#"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M17 3.5a4 4 0 0 1 0 7"/><path d="M21.5 21v-2a4 4 0 0 0-3-3.85"/></svg>Contacts</a>
       </nav>
+      <div class="side-label">Appearance</div>
+      <div class="appearance" data-appearance>
+        <div class="seg" role="group" aria-label="Theme">
+          <button type="button" data-mode="light">Light</button>
+          <button type="button" data-mode="dark">Dark</button>
+          <button type="button" data-mode="system">Match device</button>
+        </div>
+        <div class="swatches" role="group" aria-label="Accent colour">
+          <button type="button" class="swatch" data-accent="sabi"><span class="sw" style="background:linear-gradient(135deg,#0e6b57 50%,#f0b23e 50%)"></span>Sabi</button>
+          <button type="button" class="swatch" data-accent="ocean"><span class="sw" style="background:linear-gradient(135deg,#155e8c 50%,#45c4d8 50%)"></span>Ocean</button>
+          <button type="button" class="swatch" data-accent="grape"><span class="sw" style="background:linear-gradient(135deg,#5b3a8e 50%,#f2789f 50%)"></span>Grape</button>
+          <button type="button" class="swatch" data-accent="ember"><span class="sw" style="background:linear-gradient(135deg,#8a3b2e 50%,#e8b34b 50%)"></span>Ember</button>
+        </div>
+      </div>
       <div class="line-status"><span class="pulse"></span>WorkPal line is live · Quiet hours 9:00 PM – 7:00 AM</div>
       <button class="account" type="button">
         <span class="avatar" aria-hidden="true">DO</span>
@@ -638,6 +827,83 @@
       document.getElementById('composer').requestSubmit();
     }
   });
+
+  // Appearance: theme mode + accent, applied live and saved on this device
+  (function(){
+    var root = document.documentElement;
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    var mode = root.dataset.mode || 'dark';
+    var accent = root.dataset.accent || 'sabi';
+    function apply(){
+      root.dataset.theme = mode === 'system' ? (mq.matches ? 'dark' : 'light') : mode;
+      root.dataset.mode = mode;
+      root.dataset.accent = accent;
+      document.querySelectorAll('[data-appearance]').forEach(function(box){
+        box.querySelectorAll('[data-mode]').forEach(function(b){
+          b.classList.toggle('active', b.dataset.mode === mode);
+        });
+        box.querySelectorAll('[data-accent]').forEach(function(b){
+          b.classList.toggle('active', b.dataset.accent === accent);
+        });
+      });
+    }
+    function save(){
+      try {
+        localStorage.setItem('mwp-theme-mode', mode);
+        localStorage.setItem('mwp-accent', accent);
+      } catch (e) {}
+    }
+    document.querySelectorAll('[data-appearance]').forEach(function(box){
+      box.querySelectorAll('[data-mode]').forEach(function(b){
+        b.addEventListener('click', function(){ mode = b.dataset.mode; save(); apply(); });
+      });
+      box.querySelectorAll('[data-accent]').forEach(function(b){
+        b.addEventListener('click', function(){ accent = b.dataset.accent; save(); apply(); });
+      });
+    });
+    if (mq.addEventListener) mq.addEventListener('change', function(){ if (mode === 'system') apply(); });
+    apply();
+  })();
+
+  // In-app call (demo): idle -> connecting -> in call with timer -> ended -> idle.
+  // State changes only — no audio is captured or transmitted by this screen.
+  (function(){
+    var talkBtn = document.getElementById('btn-talk');
+    var live = document.getElementById('call-live');
+    var status = document.getElementById('call-status');
+    var timerEl = document.getElementById('call-timer');
+    var endBtn = document.getElementById('btn-end-call');
+    var hint = document.getElementById('call-hint');
+    var connectTimer = null, tick = null, secs = 0;
+    function fmt(s){ return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+    talkBtn.addEventListener('click', function(){
+      talkBtn.hidden = true;
+      hint.hidden = true;
+      live.hidden = false;
+      endBtn.hidden = false;
+      status.textContent = 'Connecting…';
+      timerEl.textContent = '0:00';
+      secs = 0;
+      connectTimer = setTimeout(function(){
+        status.textContent = 'In call — WorkPal is listening (demo)';
+        tick = setInterval(function(){
+          secs++;
+          timerEl.textContent = fmt(secs);
+        }, 1000);
+      }, 1300);
+    });
+    endBtn.addEventListener('click', function(){
+      clearTimeout(connectTimer);
+      clearInterval(tick);
+      status.textContent = secs > 0 ? 'Call ended · ' + fmt(secs) : 'Call ended';
+      endBtn.hidden = true;
+      setTimeout(function(){
+        live.hidden = true;
+        talkBtn.hidden = false;
+        hint.hidden = false;
+      }, 1800);
+    });
+  })();
 </script>
 </body>
 </html>
