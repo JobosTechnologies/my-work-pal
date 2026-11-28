@@ -1,502 +1,527 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>My Work Pal — WorkPal by JobOS Labs</title>
-<meta name="description" content="My Work Pal owner app: talk to WorkPal, approve drafts, and keep the busywork moving. Sample-data design build.">
+<meta name="description" content="My Work Pal owner app: talk to WorkPal, approve drafts, and keep the busywork moving. Built to the My Work Pal design system. Sample-data design build.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,560;9..144,640&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;1,9..144,600;1,9..144,700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script>
   // Theme init: runs before first paint so a saved choice never flashes.
-  // Mode: dark (default) / light / system. Accent: sabi (default) / ocean / grape / ember.
+  // Stored pref is one of dark / light / midnight / sand / contrast / system.
+  // data-theme always carries the resolved theme; data-theme-pref the choice.
   (function(){
-    var mode = 'dark', accent = 'sabi';
+    var pref = 'dark';
     try {
-      mode = localStorage.getItem('mwp-theme-mode') || 'dark';
-      accent = localStorage.getItem('mwp-accent') || 'sabi';
+      pref = localStorage.getItem('mwp-theme') || localStorage.getItem('mwp-theme-mode') || 'dark';
     } catch (e) {}
-    var dark = mode === 'system'
-      ? window.matchMedia('(prefers-color-scheme: dark)').matches
-      : mode !== 'light';
+    if (['dark','light','midnight','sand','contrast','system'].indexOf(pref) < 0) pref = 'dark';
+    var resolved = pref === 'system'
+      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : pref;
     var root = document.documentElement;
-    root.dataset.theme = dark ? 'dark' : 'light';
-    root.dataset.mode = mode;
-    root.dataset.accent = accent;
+    root.setAttribute('data-theme', resolved);
+    root.dataset.themePref = pref;
+    root.style.colorScheme = (resolved === 'light' || resolved === 'sand') ? 'light' : 'dark';
   })();
 </script>
 <style>
-  /* ============ Sabi palette, adapted to a dark professional shell ============ */
-  :root{
-    color-scheme: dark;
-    --bg:        #090e0b;   /* app background, near-black green */
-    --bg-raise:  #0d130f;   /* sidebar / right panel */
-    --card:      #121a15;   /* card surface */
-    --card-2:    #16211a;   /* raised card surface */
-    --inset:     #0b100d;   /* inset wells: composer, draft */
-    --border:    rgba(214, 232, 219, .09);
-    --border-2:  rgba(214, 232, 219, .16);
-    --text:      #eef3ec;
-    --muted:     #9daca0;
-    --faint:     #6f7f72;
-    --teal:      #0e6b57;   /* Sabi deep teal */
-    --teal-hi:   #35c79e;   /* live accents on dark */
-    --amber:     #f0b23e;   /* Sabi amber */
-    --amber-hi:  #f7c05c;   /* accent hover */
-    --amber-ink: #201503;   /* text on amber */
-    --brand-hi:  #12755e;   /* brand mark gradient, light stop */
-    --brand-lo:  #093f31;   /* brand mark gradient, deep stop */
-    --phone-1:   #10392e;   /* phone card gradient, light stop */
-    --accent-deep: #c9831c; /* avatar gradient, deep stop */
-    --cream:     #f6efdd;
-    --danger:    #e07856;
-    --hover:     rgba(255, 255, 255, .045);
-    --hover-2:   rgba(255, 255, 255, .06);
-    --hover-soft: rgba(255, 255, 255, .02);
-    --shadow-card: 0 10px 28px rgba(0, 0, 0, .28);
-    --draft-text: #d9e2d9;
-    --note-text: #c9f2e2;
-    --add-bg:    #f6efdd;   /* "Add job" button */
-    --add-ink:   #1c1a12;
-    --add-bg-hover: #ffffff;
-    --radius:    18px;
-    --radius-lg: 22px;
-    --shadow:    0 18px 44px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.35);
-    --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
-  }
-  *{ box-sizing: border-box; }
-  html, body{ height: 100%; }
-  body{
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: var(--font-ui); font-size: 15px; line-height: 1.5;
-    -webkit-font-smoothing: antialiased;
-  }
-  button{ font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
-  a{ color: inherit; text-decoration: none; }
-  :focus-visible{ outline: 2px solid var(--amber); outline-offset: 2px; border-radius: 6px; }
-  .ic{ width: 19px; height: 19px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-  .ic.sm{ width: 15px; height: 15px; }
-
-  /* ============ App shell (desktop) ============ */
-  .shell{
-    display: grid; height: 100dvh;
-    grid-template-columns: 268px minmax(0, 1fr) 348px;
-    grid-template-areas: "side main right";
-  }
-  .topbar{ display: none; }
-
-  /* ============ Sidebar ============ */
-  .sidebar{
-    grid-area: side; background: var(--bg-raise);
-    border-right: 1px solid var(--border);
-    display: flex; flex-direction: column; min-height: 0;
-  }
-  .brand{ display: flex; align-items: center; gap: 11px; padding: 18px 18px 14px; }
-  .brand-mark{
-    width: 38px; height: 38px; border-radius: 12px; flex: none;
-    background: linear-gradient(145deg, var(--brand-hi), var(--teal) 55%, var(--brand-lo));
-    display: grid; place-items: center;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 6px 16px rgba(0,0,0,.35);
-  }
-  .brand-mark svg{ width: 21px; height: 21px; }
-  .brand-name{ font-weight: 700; font-size: 16px; letter-spacing: -.01em; line-height: 1.15; }
-  .brand-sub{ font-size: 11.5px; color: var(--faint); letter-spacing: .02em; }
-  .sample-pill{
-    margin-left: auto; font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
-    color: var(--amber); border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
-    background: color-mix(in srgb, var(--amber) 8%, transparent); padding: 3px 8px; border-radius: 999px; white-space: nowrap;
-  }
-  .side-scroll{ overflow-y: auto; padding: 2px 10px 10px; flex: 1; min-height: 0; }
-  .nav{ display: flex; flex-direction: column; gap: 2px; }
-  .nav a{
-    display: flex; align-items: center; gap: 11px;
-    padding: 9px 10px; border-radius: 11px; color: var(--muted); font-weight: 500;
-    transition: background .15s, color .15s;
-  }
-  .nav a:hover{ background: var(--hover); color: var(--text); }
-  .nav a.active{ background: color-mix(in srgb, var(--amber) 12%, transparent); color: var(--text); }
-  .nav a.active .ic{ color: var(--amber); }
-  .nav .count{
-    margin-left: auto; font-size: 11px; font-weight: 700; color: var(--amber-ink);
-    background: var(--amber); border-radius: 999px; min-width: 20px; height: 20px;
-    display: grid; place-items: center; padding: 0 6px;
-  }
-  .side-label{
-    display: flex; align-items: center; justify-content: space-between;
-    margin: 20px 8px 7px; font-size: 11px; font-weight: 600;
-    letter-spacing: .09em; text-transform: uppercase; color: var(--faint);
-  }
-  .chat-day{ margin: 10px 8px 4px; font-size: 11.5px; color: var(--faint); }
-  .chat-item{
-    display: flex; align-items: center; gap: 9px; padding: 7px 10px;
-    border-radius: 10px; color: var(--muted); font-weight: 500; width: 100%; text-align: left;
-  }
-  .chat-item:hover{ background: var(--hover); color: var(--text); }
-  .chat-item .dot{ width: 6px; height: 6px; border-radius: 50%; border: 1.5px solid var(--faint); flex: none; }
-  .side-foot{ border-top: 1px solid var(--border); padding: 12px 14px 14px; }
-  .line-status{ display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); padding: 2px 4px 11px; }
-  .pulse{ width: 8px; height: 8px; border-radius: 50%; background: var(--teal-hi); flex: none; position: relative; }
-  .pulse::after{
-    content: ""; position: absolute; inset: -4px; border-radius: 50%;
-    border: 1px solid var(--teal-hi); opacity: .55; animation: ping 2.2s ease-out infinite;
-  }
-  @keyframes ping{ 0%{ transform: scale(.55); opacity: .7; } 80%, 100%{ transform: scale(1.25); opacity: 0; } }
-  .account{
-    display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
-    padding: 9px 10px; border-radius: 13px; border: 1px solid var(--border); background: var(--card);
-    transition: border-color .15s, background .15s;
-  }
-  .account:hover{ border-color: var(--border-2); background: var(--card-2); }
-  .avatar{
-    width: 36px; height: 36px; border-radius: 50%; flex: none; display: grid; place-items: center;
-    background: linear-gradient(145deg, var(--amber), var(--accent-deep)); color: var(--amber-ink);
-    font-weight: 700; font-size: 13px; letter-spacing: .02em;
-  }
-  .account .who{ line-height: 1.25; min-width: 0; }
-  .account .who b{ display: block; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .account .who span{ font-size: 12px; color: var(--faint); }
-  .account .ic{ margin-left: auto; color: var(--faint); }
-
-  /* ============ Accent schemes (owner's choice, applied live) ============ */
-  html[data-accent="ocean"]{
-    --teal: #155e8c; --teal-hi: #4fb0e5;
-    --amber: #45c4d8; --amber-hi: #6fd3e5; --amber-ink: #06222b;
-    --brand-hi: #1b6ca8; --brand-lo: #0b3556; --phone-1: #0e2f47; --accent-deep: #2a8ba3;
-  }
-  html[data-accent="grape"]{
-    --teal: #5b3a8e; --teal-hi: #b493f2;
-    --amber: #f2789f; --amber-hi: #f79cbb; --amber-ink: #2b0a18;
-    --brand-hi: #6d4aa5; --brand-lo: #38205e; --phone-1: #2c1e47; --accent-deep: #c24e78;
-  }
-  html[data-accent="ember"]{
-    --teal: #8a3b2e; --teal-hi: #eda184;
-    --amber: #e8b34b; --amber-hi: #f0c56e; --amber-ink: #26130a;
-    --brand-hi: #a5503c; --brand-lo: #57241a; --phone-1: #472219; --accent-deep: #b97f22;
-  }
-
-  /* ============ Light theme ============ */
-  html[data-theme="light"]{
-    color-scheme: light;
-    --bg:        #f2eee3;
-    --bg-raise:  #faf8f1;
-    --card:      #fffdf7;
-    --card-2:    #f7f3e8;
-    --inset:     #efe9da;
-    --border:    rgba(24, 48, 36, .12);
-    --border-2:  rgba(24, 48, 36, .24);
-    --text:      #17251c;
-    --muted:     #5b6c5f;
-    --faint:     #7e8d7e;
-    --teal-hi:   #0d8563;   /* deepened so live accents read on light surfaces */
-    --hover:     rgba(18, 43, 32, .05);
-    --hover-2:   rgba(18, 43, 32, .07);
-    --hover-soft: rgba(18, 43, 32, .03);
-    --shadow:    0 18px 44px rgba(31, 51, 38, .16), 0 2px 8px rgba(31, 51, 38, .10);
-    --shadow-card: 0 10px 28px rgba(31, 51, 38, .10);
-    --draft-text: #2c3a30;
-    --note-text: #0d5c43;
-    --add-bg:    #17352a;
-    --add-ink:   #f6efdd;
-    --add-bg-hover: #1f4a3a;
-  }
-  html[data-theme="light"][data-accent="ocean"]{ --teal-hi: #1b7fb8; }
-  html[data-theme="light"][data-accent="grape"]{ --teal-hi: #7a4fc0; }
-  html[data-theme="light"][data-accent="ember"]{ --teal-hi: #c05a36; }
-
-  /* ============ Appearance controls ============ */
-  .appearance{ padding: 2px 8px 6px; }
-  .seg{
-    display: flex; gap: 2px; padding: 3px;
-    background: var(--inset); border: 1px solid var(--border); border-radius: 999px;
-  }
-  .seg button{
-    flex: 1; padding: 6px 2px; border-radius: 999px;
-    font-size: 11.5px; font-weight: 600; color: var(--muted); white-space: nowrap;
-    transition: background .15s, color .15s;
-  }
-  .seg button:hover{ color: var(--text); }
-  .seg button.active{ background: var(--card-2); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,.28); }
-  .swatches{ display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 9px; }
-  .swatch{
-    display: flex; flex-direction: column; align-items: center; gap: 5px;
-    padding: 5px 0 4px; border-radius: 10px;
-    font-size: 11px; font-weight: 600; color: var(--muted);
-    transition: background .15s, color .15s;
-  }
-  .swatch:hover{ background: var(--hover); color: var(--text); }
-  .swatch .sw{
-    width: 25px; height: 25px; border-radius: 50%; flex: none;
-    box-shadow: inset 0 0 0 2px rgba(255,255,255,.25);
-    outline: 2px solid transparent; outline-offset: 2px;
-  }
-  .swatch.active{ color: var(--text); }
-  .swatch.active .sw{ outline-color: var(--text); }
-  .menuview .appearance{ padding: 2px 0 6px; }
-  .menuview .seg button{ font-size: 12.5px; padding: 8px 2px; }
+/* =====================================================================
+   My Work Pal design tokens — copied verbatim from
+   ui/design-system/tokens.css (generated from tokens.json).
+   26 color tokens x 5 themes, plus space / radius / type tokens.
+   ===================================================================== */
+:root, [data-theme="dark"] {
+  --surface-000: #0b100e;
+  --surface-100: #0f1512;
+  --surface-200: #151d19;
+  --surface-300: #1b2520;
+  --surface-selected: #2a2414;
+  --border: #26302b;
+  --border-strong: #36423b;
+  --ink: #f3efe6;
+  --ink-muted: #a7b0aa;
+  --ink-subtle: #808b85;
+  --amber-500: #f0b43c;
+  --amber-600: #e0a024;
+  --on-amber: #1a1406;
+  --amber-text: #f2b33d;
+  --amber-surface: #2a2210;
+  --amber-border: #5a4718;
+  --teal-700: #0f5a49;
+  --teal-border: #1d7a63;
+  --teal-surface: #10241e;
+  --on-teal: #f3efe6;
+  --on-teal-muted: #b9dccf;
+  --green-text: #4cc796;
+  --live: #34d399;
+  --live-halo: rgba(52, 211, 153, 0.18);
+  --danger: #f87171;
+  --focus-ring: #f0b43c;
+  --shadow-focus: 0 0 0 3px rgba(240, 180, 60, 0.28);
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+[data-theme="light"] {
+  --surface-000: #efece4;
+  --surface-100: #f7f5ef;
+  --surface-200: #ffffff;
+  --surface-300: #f1eee6;
+  --surface-selected: #f6ecd3;
+  --border: #e2ddd0;
+  --border-strong: #cfc8b8;
+  --ink: #15201b;
+  --ink-muted: #4b5650;
+  --ink-subtle: #5f6a64;
+  --amber-500: #f0b43c;
+  --amber-600: #dd9f22;
+  --on-amber: #1a1406;
+  --amber-text: #8a5a00;
+  --amber-surface: #fbf0d6;
+  --amber-border: #e8cf8f;
+  --teal-700: #0f6b55;
+  --teal-border: #0b5848;
+  --teal-surface: #e3f1ec;
+  --on-teal: #ffffff;
+  --on-teal-muted: #d4ece3;
+  --green-text: #0f7a5c;
+  --live: #12a171;
+  --live-halo: rgba(18, 161, 113, 0.16);
+  --danger: #b42318;
+  --focus-ring: #8a5a00;
+  --shadow-focus: 0 0 0 3px rgba(138, 90, 0, 0.22);
+  --shadow-pop: 0 12px 32px rgba(21, 32, 27, 0.12);
+}
+[data-theme="midnight"] {
+  --surface-000: #0a0e17;
+  --surface-100: #0d1220;
+  --surface-200: #131a2b;
+  --surface-300: #1a2336;
+  --surface-selected: #2a2516;
+  --border: #232c40;
+  --border-strong: #33405a;
+  --ink: #eef1f7;
+  --ink-muted: #a6afc2;
+  --ink-subtle: #8590a6;
+  --amber-500: #f0b43c;
+  --amber-600: #e0a024;
+  --on-amber: #1a1406;
+  --amber-text: #f2b33d;
+  --amber-surface: #2a2312;
+  --amber-border: #5a4718;
+  --teal-700: #0f5560;
+  --teal-border: #1f7684;
+  --teal-surface: #0f2029;
+  --on-teal: #eef1f7;
+  --on-teal-muted: #b7d9df;
+  --green-text: #4cc796;
+  --live: #34d399;
+  --live-halo: rgba(52, 211, 153, 0.18);
+  --danger: #f87171;
+  --focus-ring: #f0b43c;
+  --shadow-focus: 0 0 0 3px rgba(240, 180, 60, 0.28);
+  --shadow-pop: 0 12px 32px rgba(0, 0, 0, 0.55);
+}
+[data-theme="sand"] {
+  --surface-000: #ebe3d3;
+  --surface-100: #f6f0e4;
+  --surface-200: #fffaf1;
+  --surface-300: #efe6d6;
+  --surface-selected: #f3e2b8;
+  --border: #ddd1bb;
+  --border-strong: #c9b99c;
+  --ink: #231a10;
+  --ink-muted: #574a3a;
+  --ink-subtle: #6b5d4b;
+  --amber-500: #f0b43c;
+  --amber-600: #dd9f22;
+  --on-amber: #1a1406;
+  --amber-text: #84530a;
+  --amber-surface: #f8e7bf;
+  --amber-border: #e0c27a;
+  --teal-700: #0f6b55;
+  --teal-border: #0b5848;
+  --teal-surface: #dcefe7;
+  --on-teal: #ffffff;
+  --on-teal-muted: #d4ece3;
+  --green-text: #0f7a5c;
+  --live: #12a171;
+  --live-halo: rgba(18, 161, 113, 0.16);
+  --danger: #b42318;
+  --focus-ring: #84530a;
+  --shadow-focus: 0 0 0 3px rgba(132, 83, 10, 0.22);
+  --shadow-pop: 0 12px 32px rgba(35, 26, 16, 0.14);
+}
+[data-theme="contrast"] {
+  --surface-000: #000000;
+  --surface-100: #000000;
+  --surface-200: #0b0b0b;
+  --surface-300: #161616;
+  --surface-selected: #3a2c00;
+  --border: #8a8a8a;
+  --border-strong: #c8c8c8;
+  --ink: #ffffff;
+  --ink-muted: #e6e6e6;
+  --ink-subtle: #c4c4c4;
+  --amber-500: #ffc24d;
+  --amber-600: #ffb020;
+  --on-amber: #000000;
+  --amber-text: #ffcc66;
+  --amber-surface: #2b2000;
+  --amber-border: #ffc24d;
+  --teal-700: #00594a;
+  --teal-border: #5fe0bd;
+  --teal-surface: #002b23;
+  --on-teal: #ffffff;
+  --on-teal-muted: #e6fff7;
+  --green-text: #5fe0bd;
+  --live: #3ef0a8;
+  --live-halo: rgba(62, 240, 168, 0.30);
+  --danger: #ff8a8a;
+  --focus-ring: #ffcc66;
+  --shadow-focus: 0 0 0 3px rgba(255, 204, 102, 0.55);
+  --shadow-pop: 0 0 0 1px #ffffff;
+}
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-sans: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --text-display-xl: 700 44px/48px var(--font-display);
+  --text-display-lg: 700 32px/38px var(--font-display);
+  --text-display-number: 700 28px/34px var(--font-display);
+  --text-title: 600 17px/24px var(--font-sans);
+  --text-card-title: 600 16px/22px var(--font-sans);
+  --text-body: 400 15px/22px var(--font-sans);
+  --text-body-sm: 400 14px/20px var(--font-sans);
+  --text-label: 600 14px/20px var(--font-sans);
+  --text-caption: 400 13px/18px var(--font-sans);
+  --text-eyebrow: 600 12px/16px var(--font-sans);
+}
 </style>
 <style>
-  /* ============ Center column ============ */
-  .main{ grid-area: main; overflow-y: auto; min-width: 0; }
-  .center-wrap{ max-width: 760px; margin: 0 auto; padding: 52px 28px 40px; }
-  .greeting{ text-align: center; margin-bottom: 30px; }
-  .greeting .date{ font-size: 12.5px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--teal-hi); margin: 0 0 12px; }
-  .greeting h1{
-    font-family: var(--font-display); font-weight: 640; letter-spacing: -.01em;
-    font-size: clamp(29px, 4.2vw, 40px); line-height: 1.14; margin: 0 auto 12px; max-width: 560px;
-  }
-  .greeting h1 em{ font-style: italic; color: var(--amber); }
-  .greeting p{ color: var(--muted); margin: 0 auto; max-width: 480px; font-size: 15px; }
+/* =====================================================================
+   Components — from ui/design-system/components/bundle.css.
+   Every value comes from the tokens above.
+   ===================================================================== */
+.mwp, .mwp * { box-sizing: border-box; }
+.mwp { font-family: var(--font-sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+.mwp-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.mwp-spacer { flex: 1; }
 
-  /* Chat thread (appears after the first demo message) */
-  .thread{ display: none; flex-direction: column; gap: 12px; margin: 0 auto 18px; max-width: 680px; }
-  .thread.on{ display: flex; }
-  .msg{ max-width: 82%; padding: 11px 15px; border-radius: 16px; font-size: 14.5px; line-height: 1.5; }
-  .msg.owner{ align-self: flex-end; background: var(--teal); color: #eafaf3; border-bottom-right-radius: 6px; }
-  .msg.pal{ align-self: flex-start; background: var(--card); border: 1px solid var(--border); border-bottom-left-radius: 6px; }
-  .msg.pal .from{ display: block; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--amber); margin-bottom: 4px; }
+.mwp-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.mwp-icon--sm { width: 16px; height: 16px; }
 
-  /* Composer */
-  .composer{
-    background: var(--inset); border: 1px solid var(--border-2); border-radius: var(--radius-lg);
-    padding: 14px 14px 10px; box-shadow: var(--shadow); max-width: 680px; margin: 0 auto;
-    transition: border-color .15s;
-  }
-  .composer:focus-within{ border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
-  .composer textarea{
-    width: 100%; border: 0; background: none; color: var(--text); resize: none;
-    font: inherit; font-size: 15.5px; line-height: 1.45; max-height: 140px; padding: 2px 4px 8px;
-  }
-  .composer textarea::placeholder{ color: var(--faint); }
-  .composer textarea:focus{ outline: none; }
-  .composer-row{ display: flex; align-items: center; gap: 6px; }
-  .tool-btn{
-    width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: var(--muted);
-    transition: background .15s, color .15s;
-  }
-  .tool-btn:hover{ background: var(--hover-2); color: var(--text); }
-  .tool-btn.listening{ color: var(--amber); background: color-mix(in srgb, var(--amber) 12%, transparent); }
-  .composer-row .spacer{ flex: 1; }
-  .send-btn{
-    width: 38px; height: 38px; border-radius: 50%; background: var(--amber); color: var(--amber-ink);
-    display: grid; place-items: center; transition: transform .12s, background .15s;
-  }
-  .send-btn:hover{ background: var(--amber-hi); transform: translateY(-1px); }
+.mwp-eyebrow { margin: 0; font: 600 12px/16px var(--font-sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--green-text); display: inline-flex; align-items: center; gap: var(--space-2); }
+.mwp-display { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: 44px; line-height: 48px; letter-spacing: -0.01em; color: var(--ink); }
+.mwp-display em { font-style: italic; color: var(--amber-text); }
+.mwp-lede { margin: 0; font: 400 15px/22px var(--font-sans); color: var(--ink-muted); }
 
-  /* Quick-action chips */
-  .chips{ display: flex; gap: 9px; justify-content: center; flex-wrap: wrap; margin: 18px auto 0; max-width: 680px; }
-  .chip{
-    display: inline-flex; align-items: center; gap: 8px; padding: 9px 15px;
-    border: 1px solid var(--border-2); border-radius: 999px; background: var(--card);
-    font-weight: 500; font-size: 13.5px; color: var(--text); white-space: nowrap;
-    transition: border-color .15s, background .15s, transform .12s;
-  }
-  .chip:hover{ border-color: color-mix(in srgb, var(--amber) 50%, transparent); background: var(--card-2); transform: translateY(-1px); }
-  .chip .ic{ color: var(--amber); }
-  .chip.call{ border-color: color-mix(in srgb, var(--teal-hi) 45%, transparent); }
-  .chip.call .ic{ color: var(--teal-hi); }
+.mwp-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); height: 40px; padding: 0 var(--space-5); border: 1px solid transparent; border-radius: var(--radius-md); font: 600 14px/20px var(--font-sans); white-space: nowrap; cursor: pointer; text-decoration: none; transition: background-color .12s ease, border-color .12s ease, color .12s ease; }
+.mwp-btn .mwp-icon { width: 18px; height: 18px; }
+.mwp-btn:focus-visible, .mwp-chip:focus-visible, .mwp-icon-btn:focus-visible, .mwp-nav__item:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.mwp-btn--primary { background: var(--amber-500); color: var(--on-amber); }
+.mwp-btn--primary:hover { background: var(--amber-600); }
+.mwp-btn--secondary { background: var(--surface-200); color: var(--ink); border-color: var(--border-strong); }
+.mwp-btn--secondary:hover { background: var(--surface-300); }
+.mwp-btn--ghost { background: transparent; color: var(--ink-muted); }
+.mwp-btn--ghost:hover { background: var(--surface-300); color: var(--ink); }
+.mwp-btn--inverse { background: var(--ink); color: var(--surface-100); }
+.mwp-btn--inverse:hover { background: var(--ink-muted); }
+.mwp-btn--pill { border-radius: var(--radius-pill); }
+.mwp-btn--sm { height: 32px; padding: 0 var(--space-4); }
+.mwp-btn[disabled] { opacity: .45; cursor: not-allowed; }
 
-  /* Status line */
-  .status-line{
-    display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px 18px;
-    margin: 26px auto 0; max-width: 680px; padding: 10px 18px;
-    border: 1px solid var(--border); border-radius: 999px; background: var(--hover-soft);
-    font-size: 12.5px; color: var(--muted);
-  }
-  .status-line .item{ display: inline-flex; align-items: center; gap: 7px; }
-  .status-line .ic{ color: var(--faint); }
+.mwp-icon-btn { width: 36px; height: 36px; display: inline-grid; place-items: center; padding: 0; border: 0; border-radius: var(--radius-pill); background: transparent; color: var(--ink-muted); cursor: pointer; }
+.mwp-icon-btn:hover { background: var(--surface-300); color: var(--ink); }
+.mwp-icon-btn--send { background: var(--amber-500); color: var(--on-amber); }
+.mwp-icon-btn--send:hover { background: var(--amber-600); color: var(--on-amber); }
+.mwp-icon-btn.is-listening { background: var(--amber-surface); color: var(--amber-text); }
 
-  /* Today + phone cards under the composer */
-  .home-grid{ display: grid; grid-template-columns: 1.35fr 1fr; gap: 16px; max-width: 680px; margin: 26px auto 0; }
-  .card{
-    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
-    padding: 19px 20px; box-shadow: var(--shadow-card);
-  }
-  .card h2{ font-size: 12px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
-  .card h2 .ic{ color: var(--amber); }
-  .event{ display: flex; gap: 14px; padding: 10px 0; border-top: 1px solid var(--border); }
-  .event:first-of-type{ border-top: 0; padding-top: 2px; }
-  .event .when{ flex: none; width: 74px; }
-  .event .when b{ display: block; font-size: 14px; }
-  .event .when span{ font-size: 11.5px; color: var(--faint); }
-  .event .what b{ display: block; font-size: 14.5px; font-weight: 600; }
-  .event .what span{ font-size: 13px; color: var(--muted); }
-  .event.tomorrow{ opacity: .78; }
-  .phone-card{ background: linear-gradient(160deg, var(--phone-1), var(--teal) 130%); border-color: color-mix(in srgb, var(--teal-hi) 30%, transparent); }
-  .phone-card h2{ color: rgba(230,250,240,.65); }
-  .phone-card h2 .ic{ color: var(--teal-hi); }
-  .phone-num{ font-family: var(--font-display); font-size: 25px; font-weight: 640; letter-spacing: .01em; margin: 2px 0 4px; }
-  .phone-card p{ color: rgba(230,250,240,.75); font-size: 13px; margin: 0 0 15px; }
-  .call-btn{
-    display: inline-flex; align-items: center; gap: 9px; background: var(--amber); color: var(--amber-ink);
-    font-weight: 700; font-size: 14px; padding: 10px 18px; border-radius: 999px;
-    transition: transform .12s, background .15s;
-  }
-  .call-btn:hover{ background: var(--amber-hi); transform: translateY(-1px); }
-  .live-tag{ display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: #b9f4dd; margin-bottom: 10px; }
-  [hidden]{ display: none !important; }
+.mwp-badge { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-pill); font: 600 12px/16px var(--font-sans); color: var(--ink-muted); white-space: nowrap; }
+.mwp-badge--sample { color: var(--amber-text); background: var(--amber-surface); border-color: var(--amber-border); }
+.mwp-badge--count { min-width: 20px; height: 20px; padding: 0 6px; justify-content: center; background: var(--amber-500); color: var(--on-amber); border-color: transparent; }
+.mwp-badge--live { color: var(--green-text); }
+.mwp-dot { width: 8px; height: 8px; border-radius: var(--radius-pill); background: var(--live); box-shadow: 0 0 0 3px var(--live-halo); flex: none; }
 
-  /* In-app call (primary) */
-  .talk-btn{
-    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
-    background: var(--amber); color: var(--amber-ink);
-    font-weight: 700; font-size: 15.5px; padding: 13px 18px; border-radius: 999px;
-    box-shadow: 0 8px 20px rgba(0,0,0,.25);
-    transition: transform .12s, background .15s;
-  }
-  .talk-btn:hover{ background: var(--amber-hi); transform: translateY(-1px); }
-  .talk-btn .ic{ width: 21px; height: 21px; }
-  .call-hint{ margin: 10px 0 0; }
-  .call-live{
-    display: flex; align-items: center; gap: 9px;
-    background: rgba(0,0,0,.22); border: 1px solid rgba(255,255,255,.16);
-    border-radius: 999px; padding: 7px 7px 7px 14px;
-  }
-  .call-status{ font-size: 13.5px; font-weight: 600; color: #eafaf3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .call-timer{ font-size: 13px; color: rgba(230,250,240,.75); font-variant-numeric: tabular-nums; }
-  .end-btn{
-    margin-left: auto; flex: none; background: var(--danger); color: #fff;
-    font-weight: 700; font-size: 13px; padding: 8px 15px; border-radius: 999px;
-    transition: filter .15s, transform .12s;
-  }
-  .end-btn:hover{ filter: brightness(1.1); transform: translateY(-1px); }
+.mwp-composer { background: var(--surface-200); border: 1px solid var(--border-strong); border-radius: var(--radius-xl); padding: var(--space-4) var(--space-3) var(--space-3) var(--space-4); }
+.mwp-composer:focus-within { border-color: var(--amber-border); box-shadow: var(--shadow-focus); }
+.mwp-composer textarea { display: block; width: 100%; min-height: 44px; resize: none; padding: 0; background: transparent; border: 0; outline: 0; color: var(--ink); font: 400 15px/22px var(--font-sans); }
+.mwp-composer textarea::placeholder { color: var(--ink-subtle); }
+.mwp-composer__bar { display: flex; align-items: center; gap: var(--space-2); margin-left: calc(var(--space-2) * -1); }
 
-  /* Call by number (secondary) */
-  .by-number{ margin-top: 17px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,.14); }
-  .by-label{
-    display: block; font-size: 11px; font-weight: 700; letter-spacing: .09em;
-    text-transform: uppercase; color: rgba(230,250,240,.55); margin-bottom: 2px;
-  }
-  .by-number .phone-num{ font-size: 22px; margin: 0 0 2px; }
-  .call-btn.ghost{
-    background: transparent; border: 1px solid rgba(255,255,255,.42); color: #eef7f0; margin-top: 9px;
-  }
-  .call-btn.ghost:hover{ background: rgba(255,255,255,.1); }
-  .call-note{ margin: 15px 0 0; font-size: 12.5px; color: rgba(230,250,240,.68); }
+.mwp-chip { display: inline-flex; align-items: center; gap: var(--space-2); height: 40px; padding: 0 var(--space-4); border: 1px solid var(--border-strong); border-radius: var(--radius-pill); background: var(--surface-200); color: var(--ink); font: 600 14px/20px var(--font-sans); cursor: pointer; text-decoration: none; }
+.mwp-chip .mwp-icon { width: 18px; height: 18px; color: var(--amber-text); }
+.mwp-chip:hover { border-color: var(--amber-border); }
+.mwp-chip--call { background: var(--teal-surface); border-color: var(--teal-border); }
+.mwp-chip--call .mwp-icon { color: var(--green-text); }
+.mwp-chip--call:hover { border-color: var(--green-text); }
 
-  /* ============ Right panel ============ */
-  .right{
-    grid-area: right; background: var(--bg-raise); border-left: 1px solid var(--border);
-    overflow-y: auto; padding: 22px 18px 26px; display: flex; flex-direction: column; gap: 22px; min-height: 0;
-  }
-  .panel-head{ display: flex; align-items: center; gap: 9px; margin-bottom: 13px; }
-  .panel-head .ic{ color: var(--amber); }
-  .panel-head h2{ font-size: 15.5px; font-weight: 700; letter-spacing: -.01em; margin: 0; }
-  .panel-head .count{
-    font-size: 11px; font-weight: 700; color: var(--amber-ink); background: var(--amber);
-    border-radius: 999px; min-width: 20px; height: 20px; display: grid; place-items: center; padding: 0 6px;
-  }
-  .job-card{
-    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg);
-    padding: 17px 18px; margin-bottom: 12px; transition: border-color .15s;
-  }
-  .job-card:hover{ border-color: var(--border-2); }
-  .job-card h3{ font-size: 15px; font-weight: 650; margin: 0 0 5px; letter-spacing: -.01em; }
-  .job-card p{ font-size: 13.5px; color: var(--muted); margin: 0; }
-  .job-meta{ display: flex; align-items: center; gap: 7px; margin-top: 13px; font-size: 12.5px; color: var(--faint); }
-  .job-meta .add-btn{ margin-left: auto; }
-  .add-btn{
-    background: var(--add-bg); color: var(--add-ink); font-weight: 650; font-size: 13px;
-    padding: 7px 15px; border-radius: 999px; transition: background .15s, transform .12s;
-  }
-  .add-btn:hover{ background: var(--add-bg-hover); transform: translateY(-1px); }
-  .add-btn.added{ background: color-mix(in srgb, var(--teal-hi) 16%, transparent); color: var(--teal-hi); }
-  .approval-card{ border-color: color-mix(in srgb, var(--amber) 32%, transparent); background: linear-gradient(180deg, color-mix(in srgb, var(--amber) 5%, transparent), var(--card) 42%); }
-  .approval-card .to{ font-size: 12.5px; color: var(--muted); margin: 0 0 10px; }
-  .draft{
-    background: var(--inset); border: 1px solid var(--border); border-radius: 13px;
-    padding: 12px 14px; font-size: 13.5px; color: var(--draft-text); line-height: 1.55;
-  }
-  .draft b{ color: var(--amber); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; display: block; margin-bottom: 5px; }
-  .approval-actions{ display: flex; gap: 9px; margin-top: 14px; }
-  .btn-approve{
-    flex: 1; background: var(--amber); color: var(--amber-ink); font-weight: 700; font-size: 14px;
-    padding: 10px 14px; border-radius: 12px; transition: background .15s, transform .12s;
-  }
-  .btn-approve:hover{ background: var(--amber-hi); transform: translateY(-1px); }
-  .btn-hold{
-    padding: 10px 18px; border-radius: 12px; border: 1px solid var(--border-2);
-    font-weight: 600; font-size: 14px; color: var(--text); transition: background .15s;
-  }
-  .btn-hold:hover{ background: var(--hover-2); }
-  .decision-note{
-    display: none; margin-top: 14px; font-size: 13px; padding: 11px 13px; border-radius: 12px;
-    background: color-mix(in srgb, var(--teal-hi) 10%, transparent); border: 1px solid color-mix(in srgb, var(--teal-hi) 30%, transparent); color: var(--note-text);
-  }
-  .decision-note.on{ display: block; }
-  .approval-rule{ font-size: 12px; color: var(--faint); margin: 11px 2px 0; display: flex; gap: 7px; }
-  .approval-rule .ic{ color: var(--faint); margin-top: 1px; }
+.mwp-nav { display: flex; flex-direction: column; gap: 2px; padding: var(--space-3); background: var(--surface-000); border-radius: var(--radius-lg); }
+.mwp-nav__item { display: flex; align-items: center; gap: var(--space-3); height: 42px; padding: 0 var(--space-3); border-radius: var(--radius-md); color: var(--ink-muted); font: 500 15px/22px var(--font-sans); text-decoration: none; }
+.mwp-nav__item:hover { background: var(--surface-300); color: var(--ink); }
+.mwp-nav__item[aria-current="page"] { background: var(--surface-selected); color: var(--ink); font-weight: 600; }
+.mwp-nav__item[aria-current="page"] .mwp-icon { color: var(--amber-text); }
+.mwp-nav__item .mwp-badge--count { margin-left: auto; }
 
-  /* Mobile menu view (sidebar content as a view) */
-  .menuview{ display: none; }
-  .tabbar{ display: none; }
+.mwp-card { background: var(--surface-200); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-5); }
+.mwp-card__title { margin: 0; font: 600 16px/22px var(--font-sans); color: var(--ink); }
+.mwp-card__body { margin: var(--space-2) 0 0; font: 400 14px/20px var(--font-sans); color: var(--ink-muted); }
+.mwp-card__meta { display: inline-flex; align-items: center; gap: 6px; font: 400 13px/18px var(--font-sans); color: var(--ink-subtle); }
+.mwp-card__foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-4); }
+.mwp-section-title { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-4); font: 600 17px/24px var(--font-sans); color: var(--ink); }
+.mwp-section-title .mwp-icon { color: var(--amber-text); }
+.mwp-section-title .mwp-badge--sample { margin-left: auto; }
 
-  /* ============ Mid widths: right panel folds under the center ============ */
-  @media (max-width: 1180px){
-    .shell{ grid-template-columns: 236px minmax(0,1fr); grid-template-areas: "side main" "side right"; grid-template-rows: minmax(0,1fr) auto; }
-    .right{
-      border-left: 0; border-top: 1px solid var(--border); overflow: visible;
-      display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start;
-    }
-  }
+.mwp-card--approval { border-color: var(--amber-border); }
+.mwp-draft { margin-top: var(--space-4); padding: var(--space-4); background: var(--surface-300); border: 1px solid var(--border); border-radius: var(--radius-md); }
+.mwp-draft__label { margin: 0; font: 700 11px/16px var(--font-sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber-text); }
+.mwp-draft__text { margin: var(--space-2) 0 0; font: 400 14px/21px var(--font-sans); color: var(--ink); }
+.mwp-actions { display: flex; gap: var(--space-2); margin-top: var(--space-4); }
+.mwp-actions .mwp-btn--primary { flex: 1; }
+.mwp-assurance { display: flex; gap: var(--space-2); margin: var(--space-3) 0 0; font: 400 13px/19px var(--font-sans); color: var(--ink-muted); }
+.mwp-assurance .mwp-icon { width: 16px; height: 16px; margin-top: 2px; color: var(--ink-subtle); }
 
-  /* ============ Phone widths: a real mobile app layout ============ */
-  @media (max-width: 760px){
-    body{ font-size: 14.5px; }
-    .shell{
-      grid-template-columns: minmax(0,1fr);
-      grid-template-rows: auto minmax(0,1fr) auto;
-      grid-template-areas: "top" "stage" "tab";
-    }
-    .topbar{
-      grid-area: top; display: flex; align-items: center; gap: 10px;
-      padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
-      background: var(--bg-raise); border-bottom: 1px solid var(--border);
-    }
-    .topbar .brand-mark{ width: 32px; height: 32px; border-radius: 10px; }
-    .topbar .brand-name{ font-size: 15px; }
-    .topbar .avatar{ width: 32px; height: 32px; font-size: 12px; margin-left: auto; }
-    .sidebar{ display: none; }
-    .main, .right{ grid-area: stage; }
-    .main{ overflow-y: auto; }
-    .center-wrap{ padding: 30px 18px 28px; }
-    .greeting{ text-align: left; margin-bottom: 22px; }
-    .greeting h1{ margin-left: 0; }
-    .greeting p{ margin-left: 0; }
-    .chips{ justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; }
-    .chips::-webkit-scrollbar{ display: none; }
-    .status-line{ justify-content: flex-start; border-radius: var(--radius); }
-    .home-grid{ grid-template-columns: 1fr; }
-    .right{
-      display: none; border-left: 0; padding: 22px 18px 28px; overflow-y: auto;
-    }
-    body[data-view="approvals"] .right{ display: block; }
-    body[data-view="approvals"] .main{ display: none; }
-    body[data-view="menu"] .homeview{ display: none; }
-    body[data-view="menu"] .menuview{ display: block; padding: 22px 18px 28px; max-width: 560px; margin: 0 auto; }
-    .menuview .nav a{ padding: 13px 12px; font-size: 15.5px; border: 1px solid var(--border); background: var(--card); margin-bottom: 8px; }
-    .menuview .account{ margin-top: 18px; }
-    .menuview .line-status{ padding-top: 14px; }
-    .tabbar{
-      grid-area: tab; display: grid; grid-template-columns: repeat(4, 1fr);
-      background: var(--bg-raise); border-top: 1px solid var(--border);
-      padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
-    }
-    .tab{
-      display: flex; flex-direction: column; align-items: center; gap: 3px;
-      font-size: 10.5px; font-weight: 600; color: var(--faint); padding: 5px 0 2px; border-radius: 12px;
-      position: relative;
-    }
-    .tab .ic{ width: 22px; height: 22px; }
-    .tab.active{ color: var(--amber); }
-    .tab .badge{
-      position: absolute; top: 0; left: calc(50% + 3px); font-size: 10px; font-weight: 700;
-      color: var(--amber-ink); background: var(--amber); border-radius: 999px;
-      min-width: 17px; height: 17px; display: grid; place-items: center; padding: 0 4px;
-    }
-    .tab .badge.off{ display: none; }
+.mwp-agenda__row { display: grid; grid-template-columns: 88px 1fr; gap: var(--space-4); padding: var(--space-4) 0; border-top: 1px solid var(--border); }
+.mwp-agenda__row:first-of-type { border-top: 0; padding-top: var(--space-3); }
+.mwp-agenda__time { margin: 0; font: 600 14px/20px var(--font-sans); color: var(--ink); }
+.mwp-agenda__dur { margin: 2px 0 0; font: 400 12px/16px var(--font-sans); color: var(--ink-subtle); }
+.mwp-agenda__title { margin: 0; font: 600 15px/22px var(--font-sans); color: var(--ink); }
+.mwp-agenda__detail { margin: 2px 0 0; font: 400 13px/20px var(--font-sans); color: var(--ink-muted); }
+
+.mwp-callcard { background: var(--teal-700); border: 1px solid var(--teal-border); border-radius: var(--radius-lg); padding: var(--space-5); color: var(--on-teal); }
+.mwp-callcard .mwp-eyebrow { color: var(--on-teal-muted); }
+.mwp-callcard__live { display: inline-flex; align-items: center; gap: var(--space-2); margin-top: var(--space-4); font: 600 13px/18px var(--font-sans); color: var(--on-teal); }
+.mwp-callcard__number { margin: var(--space-3) 0 var(--space-2); font: 700 28px/34px var(--font-display); color: var(--on-teal); }
+.mwp-callcard__body { margin: 0 0 var(--space-5); font: 400 14px/20px var(--font-sans); color: var(--on-teal-muted); }
+
+.mwp-statusbar { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2) var(--space-5); padding: var(--space-3) var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--surface-100); font: 400 13px/18px var(--font-sans); color: var(--ink-muted); }
+.mwp-statusbar > span { display: inline-flex; align-items: center; gap: var(--space-2); }
+.mwp-statusbar .mwp-icon { width: 16px; height: 16px; color: var(--ink-subtle); }
+
+.mwp-theme-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--space-3); margin: 0; padding: 0; border: 0; }
+.mwp-theme-picker legend { margin-bottom: var(--space-3); padding: 0; font: 600 17px/24px var(--font-sans); color: var(--ink); }
+.mwp-theme-option { position: relative; display: block; cursor: pointer; }
+.mwp-theme-option input { position: absolute; opacity: 0; pointer-events: none; }
+.mwp-theme-swatch { display: block; padding: var(--space-3); background: var(--surface-100); border: 1px solid var(--border-strong); border-radius: var(--radius-md); }
+.mwp-theme-swatch__bar { display: block; height: 8px; width: 70%; margin-bottom: 6px; border-radius: var(--radius-pill); background: var(--ink); }
+.mwp-theme-swatch__bar--muted { width: 50%; background: var(--ink-subtle); }
+.mwp-theme-swatch__row { display: flex; gap: 6px; margin-top: var(--space-3); }
+.mwp-theme-swatch__chip { height: 18px; flex: 1; border-radius: var(--radius-pill); }
+.mwp-theme-swatch__chip--amber { background: var(--amber-500); }
+.mwp-theme-swatch__chip--teal { background: var(--teal-700); }
+.mwp-theme-swatch__chip--card { background: var(--surface-200); border: 1px solid var(--border); }
+.mwp-theme-option__name { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); font: 600 14px/20px var(--font-sans); color: var(--ink); }
+.mwp-theme-option__check { width: 16px; height: 16px; border-radius: var(--radius-pill); border: 1.5px solid var(--border-strong); flex: none; }
+.mwp-theme-option input:checked + .mwp-theme-swatch { border-color: var(--focus-ring); box-shadow: 0 0 0 1px var(--focus-ring); }
+.mwp-theme-option input:checked ~ .mwp-theme-option__name .mwp-theme-option__check { border: 5px solid var(--amber-500); }
+.mwp-theme-option input:focus-visible + .mwp-theme-swatch { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.mwp-theme-swatch--split { display: grid; grid-template-columns: 1fr 1fr; padding: 0; overflow: hidden; }
+.mwp-theme-swatch--split > span { display: block; padding: var(--space-3); background: var(--surface-100); }
+</style>
+<style>
+/* =====================================================================
+   App layout — built only from design tokens. No hard-coded colors.
+   ===================================================================== */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--surface-100); color: var(--ink);
+  font: 400 15px/22px var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.shell {
+  display: grid; height: 100dvh;
+  grid-template-columns: 268px minmax(0, 1fr) 330px;
+  grid-template-areas: "side main right";
+}
+.topbar { display: none; }
+
+/* ---- Sidebar ---- */
+.sidebar {
+  grid-area: side; background: var(--surface-000);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.brand { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-5) var(--space-5) var(--space-4); }
+.brand-name { font: 700 17px/22px var(--font-sans); letter-spacing: -0.01em; color: var(--ink); }
+.brand-sub { font: 400 12px/16px var(--font-sans); color: var(--ink-subtle); }
+.brand .mwp-badge--sample { margin-left: auto; }
+.side-scroll { overflow-y: auto; flex: 1; min-height: 0; padding: 0 var(--space-2) var(--space-3); }
+.sidebar .mwp-nav { background: transparent; border-radius: 0; padding: var(--space-2); }
+.side-label {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: var(--space-5) var(--space-3) var(--space-2);
+  font: 600 12px/16px var(--font-sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-subtle);
+}
+.side-label .mwp-icon { width: 16px; height: 16px; }
+.chat-day { margin: var(--space-3) var(--space-3) var(--space-1); font: 400 12px/16px var(--font-sans); color: var(--ink-subtle); }
+.chat-item {
+  display: flex; align-items: center; gap: var(--space-2); width: 100%; text-align: left;
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+  color: var(--ink-muted); font: 500 15px/22px var(--font-sans);
+}
+.chat-item:hover { background: var(--surface-300); color: var(--ink); }
+.chat-item .dot { width: 6px; height: 6px; border-radius: var(--radius-pill); border: 1.5px solid var(--ink-subtle); flex: none; }
+.sidebar .mwp-theme-picker { grid-template-columns: 1fr; padding: 0 var(--space-2); }
+.sidebar .mwp-theme-picker legend { font: 600 12px/16px var(--font-sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-subtle); margin-bottom: var(--space-2); }
+.side-foot { border-top: 1px solid var(--border); padding: var(--space-3) var(--space-4) var(--space-4); }
+.line-status { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-1) var(--space-3); font: 400 13px/18px var(--font-sans); color: var(--ink-muted); }
+.account {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%; text-align: left;
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+  border: 1px solid var(--border); background: var(--surface-200);
+}
+.account:hover { background: var(--surface-300); }
+.avatar {
+  width: 36px; height: 36px; border-radius: var(--radius-pill); flex: none; display: grid; place-items: center;
+  background: var(--amber-surface); border: 1px solid var(--amber-border); color: var(--amber-text);
+  font: 700 13px/16px var(--font-sans);
+}
+.account .who { line-height: 1.3; min-width: 0; }
+.account .who b { display: block; font: 600 14px/18px var(--font-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.account .who span { font: 400 12px/16px var(--font-sans); color: var(--ink-subtle); }
+.account .mwp-icon { margin-left: auto; color: var(--ink-subtle); width: 18px; height: 18px; }
+
+/* ---- Center ---- */
+.main { grid-area: main; overflow-y: auto; min-width: 0; }
+.center-wrap { max-width: 680px; margin: 0 auto; padding: var(--space-12) var(--space-6) var(--space-8); }
+.greeting { text-align: center; margin-bottom: var(--space-8); }
+.greeting .mwp-eyebrow { justify-content: center; margin-bottom: var(--space-3); }
+.greeting .mwp-lede { margin: var(--space-3) auto 0; max-width: 480px; }
+
+.thread { display: none; flex-direction: column; gap: var(--space-3); margin: 0 auto var(--space-4); }
+.thread.on { display: flex; }
+.msg { max-width: 82%; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); font: 400 14px/21px var(--font-sans); }
+.msg.owner { align-self: flex-end; background: var(--surface-selected); border: 1px solid var(--amber-border); border-bottom-right-radius: var(--radius-sm); }
+.msg.pal { align-self: flex-start; background: var(--surface-200); border: 1px solid var(--border); border-bottom-left-radius: var(--radius-sm); }
+.msg.pal .from { display: block; font: 600 12px/16px var(--font-sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--amber-text); margin-bottom: var(--space-1); }
+
+.chips { display: flex; gap: var(--space-3); justify-content: center; flex-wrap: wrap; margin-top: var(--space-4); }
+.status-wrap { margin-top: var(--space-6); }
+
+.home-grid { display: grid; grid-template-columns: 1.25fr 1fr; gap: var(--space-6); margin-top: var(--space-6); align-items: start; }
+
+/* Call card extras: in-app call is the primary action, number is second */
+.talk-btn { width: 100%; height: 48px; font-size: 15px; margin-top: var(--space-4); }
+.talk-btn .mwp-icon { width: 20px; height: 20px; }
+.call-hint { margin: var(--space-3) 0 0; font: 400 13px/19px var(--font-sans); color: var(--on-teal-muted); }
+.call-live {
+  display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-4);
+  background: var(--teal-surface); border: 1px solid var(--teal-border);
+  border-radius: var(--radius-pill); padding: 6px 6px 6px var(--space-4);
+}
+.call-status { font: 600 13px/18px var(--font-sans); color: var(--on-teal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.call-timer { font: 400 13px/18px var(--font-sans); color: var(--on-teal-muted); font-variant-numeric: tabular-nums; }
+.end-btn {
+  margin-left: auto; flex: none; background: var(--danger); color: var(--surface-100);
+  font: 600 13px/18px var(--font-sans); padding: var(--space-2) var(--space-4); border-radius: var(--radius-pill); cursor: pointer;
+}
+.by-number { margin-top: var(--space-5); padding-top: var(--space-4); border-top: 1px solid var(--teal-border); }
+.by-label { display: block; font: 600 12px/16px var(--font-sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--on-teal-muted); margin-bottom: var(--space-1); }
+.btn-on-teal { background: transparent; color: var(--on-teal); border-color: var(--on-teal); margin-top: var(--space-3); }
+.btn-on-teal:hover { background: var(--teal-surface); }
+.call-note { margin: var(--space-4) 0 0; font: 400 13px/19px var(--font-sans); color: var(--on-teal-muted); }
+
+/* ---- Right rail ---- */
+.right {
+  grid-area: right; background: var(--surface-100); border-left: 1px solid var(--border);
+  overflow-y: auto; padding: var(--space-6) var(--space-5); display: flex; flex-direction: column; gap: var(--space-6); min-height: 0;
+}
+.right .mwp-card { margin-bottom: var(--space-3); }
+.decision-note {
+  display: none; margin-top: var(--space-4); padding: var(--space-3) var(--space-4);
+  background: var(--amber-surface); border: 1px solid var(--amber-border); border-radius: var(--radius-md);
+  font: 400 14px/20px var(--font-sans); color: var(--ink);
+}
+.decision-note.on { display: block; }
+
+/* JobCard: Why this job + Based on (grounded in the owner's own data) */
+.mwp-why { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--border); }
+.mwp-why__label { display: flex; align-items: center; gap: 6px; margin: 0; font: 600 13px/18px var(--font-sans); color: var(--ink-muted); }
+.mwp-why__label .mwp-icon { width: 16px; height: 16px; color: var(--amber-text); }
+.mwp-why__text { margin: var(--space-2) 0 0; font: 500 14px/21px var(--font-sans); color: var(--ink); }
+.mwp-based { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); font: 400 13px/18px var(--font-sans); color: var(--ink-subtle); }
+.mwp-based .mwp-badge .mwp-icon { width: 14px; height: 14px; }
+.added-badge { color: var(--green-text); border-color: var(--teal-border); }
+
+/* Mobile menu view + tab bar (shown at phone widths) */
+.menuview { display: none; }
+.tabbar { display: none; }
+
+/* ---- Below 1100px: right rail moves under the main column ---- */
+@media (max-width: 1100px) {
+  .shell { grid-template-columns: 268px minmax(0, 1fr); grid-template-areas: "side main" "side right"; grid-template-rows: minmax(0, 1fr) auto; }
+  .right { border-left: 0; border-top: 1px solid var(--border); overflow: visible; display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-6); align-items: start; }
+}
+
+/* ---- Below 760px: mobile app layout ---- */
+@media (max-width: 760px) {
+  .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: "top" "stage" "tab"; }
+  .topbar {
+    grid-area: top; display: flex; align-items: center; gap: var(--space-3);
+    padding: calc(10px + env(safe-area-inset-top)) var(--space-4) 10px;
+    background: var(--surface-000); border-bottom: 1px solid var(--border);
   }
+  .topbar .brand-name { font-size: 16px; }
+  .topbar .avatar { width: 32px; height: 32px; margin-left: auto; }
+  .sidebar { display: none; }
+  .main, .right { grid-area: stage; }
+  .main { overflow-y: auto; }
+  .center-wrap { padding: var(--space-6) var(--space-4) var(--space-6); }
+  .greeting { text-align: left; margin-bottom: var(--space-6); }
+  .greeting .mwp-eyebrow { justify-content: flex-start; }
+  .greeting .mwp-display { font-size: 32px; line-height: 38px; }
+  .greeting .mwp-lede { margin-left: 0; }
+  .chips { justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; padding-bottom: var(--space-2); scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .mwp-statusbar { justify-content: flex-start; border-radius: var(--radius-lg); }
+  .home-grid { grid-template-columns: 1fr; }
+  .right { display: none; border-left: 0; padding: var(--space-6) var(--space-4); overflow-y: auto; }
+  body[data-view="approvals"] .right { display: block; }
+  body[data-view="approvals"] .main { display: none; }
+  body[data-view="menu"] .homeview { display: none; }
+  body[data-view="menu"] .menuview { display: block; padding: var(--space-6) var(--space-4); max-width: 560px; margin: 0 auto; }
+  .menuview .mwp-nav { padding: 0; }
+  .menuview .mwp-nav__item { height: 48px; border: 1px solid var(--border); background: var(--surface-200); margin-bottom: var(--space-2); }
+  .menuview .mwp-theme-picker { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); margin-top: var(--space-5); }
+  .menuview .line-status { padding-top: var(--space-4); }
+  .menuview .account { margin-top: var(--space-4); }
+  .tabbar {
+    grid-area: tab; display: grid; grid-template-columns: repeat(4, 1fr);
+    background: var(--surface-000); border-top: 1px solid var(--border);
+    padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom));
+  }
+  .tab {
+    display: flex; flex-direction: column; align-items: center; gap: 3px; position: relative;
+    font: 600 11px/14px var(--font-sans); color: var(--ink-subtle); padding: 5px 0 2px; border-radius: var(--radius-md); text-decoration: none;
+  }
+  .tab .mwp-icon { width: 22px; height: 22px; }
+  .tab.active { color: var(--amber-text); }
+  .tab .tab-badge {
+    position: absolute; top: 0; left: calc(50% + 3px); min-width: 17px; height: 17px; padding: 0 4px;
+    display: grid; place-items: center; border-radius: var(--radius-pill);
+    background: var(--amber-500); color: var(--on-amber); font: 700 10px/12px var(--font-sans);
+  }
+  .tab .tab-badge.off { display: none; }
+}
 </style>
 </head>
 <body data-view="home">
@@ -504,62 +529,79 @@
 
   <!-- Mobile top bar -->
   <header class="topbar">
-    <span class="brand-mark" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none"><circle cx="7.5" cy="12" r="2.3" style="fill:var(--amber)"/><path d="M12.3 8.6a4.8 4.8 0 0 1 0 6.8" style="stroke:var(--cream)" stroke-width="1.9" stroke-linecap="round"/><path d="M15.4 5.8a8.8 8.8 0 0 1 0 12.4" style="stroke:var(--cream)" stroke-width="1.9" stroke-linecap="round" opacity=".65"/></svg>
-    </span>
     <span class="brand-name">My Work Pal</span>
-    <span class="sample-pill">Sample data</span>
+    <span class="mwp-badge mwp-badge--sample">Sample data</span>
     <span class="avatar" aria-hidden="true">DO</span>
   </header>
 
   <!-- ============ Sidebar (desktop / tablet) ============ -->
   <aside class="sidebar">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none"><circle cx="7.5" cy="12" r="2.3" style="fill:var(--amber)"/><path d="M12.3 8.6a4.8 4.8 0 0 1 0 6.8" style="stroke:var(--cream)" stroke-width="1.9" stroke-linecap="round"/><path d="M15.4 5.8a8.8 8.8 0 0 1 0 12.4" style="stroke:var(--cream)" stroke-width="1.9" stroke-linecap="round" opacity=".65"/></svg>
-      </span>
       <span>
         <span class="brand-name">My Work Pal</span><br>
         <span class="brand-sub">by JobOS Labs</span>
       </span>
-      <span class="sample-pill">Sample data</span>
+      <span class="mwp-badge mwp-badge--sample">Sample data</span>
     </div>
     <div class="side-scroll">
-      <nav class="nav" aria-label="Main">
-        <a href="#" class="active"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>New</a>
-        <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a>
-        <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Library</a>
-        <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Client messages<span class="count" data-approval-count>1</span></a>
-        <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M9 7V3M15 7V3"/><path d="M7 7h10v4a5 5 0 0 1-10 0V7z"/><path d="M12 16v5"/></svg>Connected apps</a>
-        <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Vault</a>
-        <a href="#"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M17 3.5a4 4 0 0 1 0 7"/><path d="M21.5 21v-2a4 4 0 0 0-3-3.85"/></svg>Contacts</a>
+      <nav class="mwp-nav" aria-label="Main">
+        <a class="mwp-nav__item" href="#" aria-current="page"><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>New</a>
+        <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a>
+        <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>Library</a>
+        <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>Client messages<span class="mwp-badge mwp-badge--count" data-approval-count aria-label="1 waiting">1</span></a>
+        <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>Connected apps</a>
+        <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Vault</a>
+        <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Contacts</a>
       </nav>
-      <div class="side-label">Chats <svg class="ic sm" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
+      <div class="side-label">Chats <svg class="mwp-icon" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></div>
       <div class="chat-day">Today</div>
       <button class="chat-item" type="button"><span class="dot"></span>Morning brief</button>
       <div class="chat-day">Yesterday</div>
       <button class="chat-item" type="button"><span class="dot"></span>Get started</button>
       <div class="side-label">Appearance</div>
-      <div class="appearance" data-appearance>
-        <div class="seg" role="group" aria-label="Theme">
-          <button type="button" data-mode="light">Light</button>
-          <button type="button" data-mode="dark">Dark</button>
-          <button type="button" data-mode="system">Match device</button>
-        </div>
-        <div class="swatches" role="group" aria-label="Accent colour">
-          <button type="button" class="swatch" data-accent="sabi"><span class="sw" style="background:linear-gradient(135deg,#0e6b57 50%,#f0b23e 50%)"></span>Sabi</button>
-          <button type="button" class="swatch" data-accent="ocean"><span class="sw" style="background:linear-gradient(135deg,#155e8c 50%,#45c4d8 50%)"></span>Ocean</button>
-          <button type="button" class="swatch" data-accent="grape"><span class="sw" style="background:linear-gradient(135deg,#5b3a8e 50%,#f2789f 50%)"></span>Grape</button>
-          <button type="button" class="swatch" data-accent="ember"><span class="sw" style="background:linear-gradient(135deg,#8a3b2e 50%,#e8b34b 50%)"></span>Ember</button>
-        </div>
-      </div>
+      <fieldset class="mwp-theme-picker" data-theme-picker>
+        <legend>Theme</legend>
+        <label class="mwp-theme-option">
+          <input type="radio" name="theme-side" value="system">
+          <span class="mwp-theme-swatch mwp-theme-swatch--split">
+            <span data-theme="dark"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span></span></span>
+            <span data-theme="light"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span></span></span>
+          </span>
+          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Match my device</span>
+        </label>
+        <label class="mwp-theme-option">
+          <input type="radio" name="theme-side" value="dark">
+          <span class="mwp-theme-swatch" data-theme="dark"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Dark</span>
+        </label>
+        <label class="mwp-theme-option">
+          <input type="radio" name="theme-side" value="light">
+          <span class="mwp-theme-swatch" data-theme="light"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Light</span>
+        </label>
+        <label class="mwp-theme-option">
+          <input type="radio" name="theme-side" value="midnight">
+          <span class="mwp-theme-swatch" data-theme="midnight"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Midnight</span>
+        </label>
+        <label class="mwp-theme-option">
+          <input type="radio" name="theme-side" value="sand">
+          <span class="mwp-theme-swatch" data-theme="sand"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Sand</span>
+        </label>
+        <label class="mwp-theme-option">
+          <input type="radio" name="theme-side" value="contrast">
+          <span class="mwp-theme-swatch" data-theme="contrast"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>High contrast</span>
+        </label>
+      </fieldset>
     </div>
     <div class="side-foot">
-      <div class="line-status"><span class="pulse"></span>WorkPal line is live</div>
+      <div class="line-status"><span class="mwp-dot"></span>Phone line live · +1 240 231 6158</div>
       <button class="account" type="button">
         <span class="avatar" aria-hidden="true">DO</span>
         <span class="who"><b>Demo Owner</b><span>Sample Co · Owner</span></span>
-        <svg class="ic" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+        <svg class="mwp-icon" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
       </button>
     </div>
   </aside>
@@ -569,68 +611,95 @@
     <div class="homeview">
       <div class="center-wrap">
         <div class="greeting">
-          <p class="date" id="today-line">Today · Sample Co</p>
-          <h1>Good morning. Point <em>WorkPal</em> at the busywork.</h1>
-          <p>Your brief is ready, and one draft is waiting for your yes. Ask below, or call the line and talk it through.</p>
+          <p class="mwp-eyebrow" id="today-line">Today</p>
+          <h1 class="mwp-display">Good morning. Point <em>WorkPal</em> at the busywork.</h1>
+          <p class="mwp-lede">Your brief is ready, and one draft is waiting for your yes.</p>
         </div>
 
         <div class="thread" id="thread" aria-live="polite"></div>
 
-        <form class="composer" id="composer">
-          <textarea id="ask" rows="2" placeholder="Ask anything…"></textarea>
-          <div class="composer-row">
-            <button class="tool-btn" type="button" aria-label="Attach"><svg class="ic" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
-            <span class="spacer"></span>
-            <button class="tool-btn" id="mic-btn" type="button" aria-label="Voice input"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg></button>
-            <button class="send-btn" type="submit" aria-label="Send"><svg class="ic" viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></button>
+        <form class="mwp-composer" id="composer">
+          <textarea id="ask" rows="2" placeholder="Ask anything..." aria-label="Ask WorkPal"></textarea>
+          <div class="mwp-composer__bar">
+            <button class="mwp-icon-btn" type="button" aria-label="Attach">
+              <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <span class="mwp-spacer"></span>
+            <button class="mwp-icon-btn" id="mic-btn" type="button" aria-label="Speak">
+              <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
+            </button>
+            <button class="mwp-icon-btn mwp-icon-btn--send" type="submit" aria-label="Send">
+              <svg class="mwp-icon" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+            </button>
           </div>
         </form>
 
         <div class="chips">
-          <a class="chip call" href="tel:+12402316158"><svg class="ic" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call WorkPal</a>
-          <button class="chip" type="button" data-fill="Plan my day around the Acme sync and the Beta scoping call."><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Plan today</button>
-          <button class="chip" type="button" data-fill="Draft a follow-up to John Tan at Acme Corp about the proposal and the NDA."><svg class="ic" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Draft a follow-up</button>
-          <button class="chip" type="button" data-fill="Check my inbox and flag anything urgent."><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Check my inbox</button>
+          <a class="mwp-chip mwp-chip--call" href="tel:+12402316158">
+            <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            Call WorkPal
+          </a>
+          <button class="mwp-chip" type="button" data-fill="Plan my day around the Acme sync and the Beta scoping call.">
+            <svg class="mwp-icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            Plan today
+          </button>
+          <button class="mwp-chip" type="button" data-fill="Draft a follow-up to John Tan at Acme Corp about the proposal and the NDA.">
+            <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Draft a follow-up
+          </button>
+          <button class="mwp-chip" type="button" data-fill="Check my inbox and flag anything urgent.">
+            <svg class="mwp-icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            Check my inbox
+          </button>
         </div>
 
-        <div class="status-line" role="status">
-          <span class="item"><span class="pulse"></span>Phone line live · +1 240 231 6158</span>
-          <span class="item"><svg class="ic sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Quiet hours 9:00 PM – 7:00 AM</span>
-          <span class="item"><svg class="ic sm" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Morning call 8:00 AM</span>
+        <div class="status-wrap">
+          <div class="mwp-statusbar" role="status">
+            <span><span class="mwp-dot"></span>Phone line live · +1 240 231 6158</span>
+            <span><svg class="mwp-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Quiet hours 9:00 PM to 7:00 AM</span>
+            <span><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Morning call 8:00 AM</span>
+          </div>
         </div>
 
         <div class="home-grid">
-          <section class="card" aria-label="Today">
-            <h2><svg class="ic sm" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Today</h2>
-            <div class="event">
-              <div class="when"><b>10:00 AM</b><span>1 hour</span></div>
-              <div class="what"><b>Acme Corp — procurement sync</b><span>Video call · with John Tan · NDA countersignature is the open item</span></div>
+          <section class="mwp-card" aria-label="Today">
+            <p class="mwp-eyebrow"><svg class="mwp-icon mwp-icon--sm" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Today</p>
+            <div class="mwp-agenda__row">
+              <div><p class="mwp-agenda__time">10:00 AM</p><p class="mwp-agenda__dur">1 hour</p></div>
+              <div><p class="mwp-agenda__title">Acme Corp procurement sync</p><p class="mwp-agenda__detail">Video call with John Tan. NDA countersignature is the open item.</p></div>
             </div>
-            <div class="event">
-              <div class="when"><b>1:30 PM</b><span>45 min</span></div>
-              <div class="what"><b>Beta — proposal scoping</b><span>Call · scope the proposal before Friday's draft</span></div>
+            <div class="mwp-agenda__row">
+              <div><p class="mwp-agenda__time">1:30 PM</p><p class="mwp-agenda__dur">45 min</p></div>
+              <div><p class="mwp-agenda__title">Beta proposal scoping</p><p class="mwp-agenda__detail">Call. Scope the proposal before Friday's draft.</p></div>
             </div>
-            <div class="event tomorrow">
-              <div class="when"><b>Tomorrow</b><span>9:00 AM</span></div>
-              <div class="what"><b>Gamma Inc — kickoff</b><span>First meeting · WorkPal has the brief ready</span></div>
+            <div class="mwp-agenda__row">
+              <div><p class="mwp-agenda__time">Tomorrow</p><p class="mwp-agenda__dur">9:00 AM</p></div>
+              <div><p class="mwp-agenda__title">Gamma Inc kickoff</p><p class="mwp-agenda__detail">First meeting. WorkPal has the brief ready.</p></div>
             </div>
           </section>
-          <section class="card phone-card" aria-label="Talk to WorkPal">
-            <h2><svg class="ic sm" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Talk to WorkPal</h2>
-            <span class="live-tag"><span class="pulse"></span>Live now — WorkPal answers</span>
-            <button class="talk-btn" id="btn-talk" type="button"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><path d="M12 18v4"/></svg>Talk to WorkPal</button>
+
+          <section class="mwp-callcard" aria-label="Talk to WorkPal">
+            <p class="mwp-eyebrow"><svg class="mwp-icon mwp-icon--sm" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Talk to WorkPal</p>
+            <div><span class="mwp-callcard__live"><span class="mwp-dot"></span>Live now. WorkPal answers.</span></div>
+            <button class="mwp-btn mwp-btn--primary mwp-btn--pill talk-btn" id="btn-talk" type="button">
+              <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><path d="M12 19v3"/></svg>
+              Talk to WorkPal
+            </button>
             <div class="call-live" id="call-live" role="status" hidden>
-              <span class="pulse"></span>
+              <span class="mwp-dot"></span>
               <span class="call-status" id="call-status">Connecting…</span>
               <span class="call-timer" id="call-timer">0:00</span>
               <button class="end-btn" id="btn-end-call" type="button">End call</button>
             </div>
-            <p class="call-hint" id="call-hint">Press and talk, right here in the app — no dialling, just speak and WorkPal answers.</p>
+            <p class="call-hint" id="call-hint">Press and talk, right here in the app. No dialling — just speak and WorkPal answers.</p>
             <div class="by-number">
               <span class="by-label">Or call by number</span>
-              <div class="phone-num">+1 240 231 6158</div>
-              <p>The real pilot line. Call it and WorkPal picks up, briefs you, and takes the next job by voice.</p>
-              <a class="call-btn ghost" href="tel:+12402316158"><svg class="ic" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call the number</a>
+              <p class="mwp-callcard__number">+1 240 231 6158</p>
+              <p class="mwp-callcard__body">Call it and WorkPal picks up, briefs you, and takes the next job by voice.</p>
+              <a class="mwp-btn mwp-btn--pill btn-on-teal" href="tel:+12402316158">
+                <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                Call now
+              </a>
             </div>
             <p class="call-note">In-app calls ride the internet and cost less. Away from the app? WorkPal can call your phone instead.</p>
           </section>
@@ -640,75 +709,132 @@
 
     <!-- Mobile menu view -->
     <div class="menuview">
-      <nav class="nav" aria-label="Menu">
-        <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>New</a>
-        <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a>
-        <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Library</a>
-        <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Client messages</a>
-        <a href="#"><svg class="ic" viewBox="0 0 24 24"><path d="M9 7V3M15 7V3"/><path d="M7 7h10v4a5 5 0 0 1-10 0V7z"/><path d="M12 16v5"/></svg>Connected apps</a>
-        <a href="#"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Vault</a>
-        <a href="#"><svg class="ic" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M17 3.5a4 4 0 0 1 0 7"/><path d="M21.5 21v-2a4 4 0 0 0-3-3.85"/></svg>Contacts</a>
+      <nav class="mwp-nav" aria-label="Menu">
+        <a class="mwp-nav__item" href="#" aria-current="page"><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>New</a>
+        <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Jobs</a>
+        <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>Library</a>
+        <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>Client messages</a>
+        <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/></svg>Connected apps</a>
+        <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Vault</a>
+        <a class="mwp-nav__item" href="#"><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Contacts</a>
       </nav>
-      <div class="side-label">Appearance</div>
-      <div class="appearance" data-appearance>
-        <div class="seg" role="group" aria-label="Theme">
-          <button type="button" data-mode="light">Light</button>
-          <button type="button" data-mode="dark">Dark</button>
-          <button type="button" data-mode="system">Match device</button>
-        </div>
-        <div class="swatches" role="group" aria-label="Accent colour">
-          <button type="button" class="swatch" data-accent="sabi"><span class="sw" style="background:linear-gradient(135deg,#0e6b57 50%,#f0b23e 50%)"></span>Sabi</button>
-          <button type="button" class="swatch" data-accent="ocean"><span class="sw" style="background:linear-gradient(135deg,#155e8c 50%,#45c4d8 50%)"></span>Ocean</button>
-          <button type="button" class="swatch" data-accent="grape"><span class="sw" style="background:linear-gradient(135deg,#5b3a8e 50%,#f2789f 50%)"></span>Grape</button>
-          <button type="button" class="swatch" data-accent="ember"><span class="sw" style="background:linear-gradient(135deg,#8a3b2e 50%,#e8b34b 50%)"></span>Ember</button>
-        </div>
-      </div>
-      <div class="line-status"><span class="pulse"></span>WorkPal line is live · Quiet hours 9:00 PM – 7:00 AM</div>
+      <fieldset class="mwp-theme-picker" data-theme-picker>
+        <legend>Theme</legend>
+        <label class="mwp-theme-option">
+          <input type="radio" name="theme-menu" value="system">
+          <span class="mwp-theme-swatch mwp-theme-swatch--split">
+            <span data-theme="dark"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span></span></span>
+            <span data-theme="light"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span></span></span>
+          </span>
+          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Match my device</span>
+        </label>
+        <label class="mwp-theme-option">
+          <input type="radio" name="theme-menu" value="dark">
+          <span class="mwp-theme-swatch" data-theme="dark"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Dark</span>
+        </label>
+        <label class="mwp-theme-option">
+          <input type="radio" name="theme-menu" value="light">
+          <span class="mwp-theme-swatch" data-theme="light"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Light</span>
+        </label>
+        <label class="mwp-theme-option">
+          <input type="radio" name="theme-menu" value="midnight">
+          <span class="mwp-theme-swatch" data-theme="midnight"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Midnight</span>
+        </label>
+        <label class="mwp-theme-option">
+          <input type="radio" name="theme-menu" value="sand">
+          <span class="mwp-theme-swatch" data-theme="sand"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>Sand</span>
+        </label>
+        <label class="mwp-theme-option">
+          <input type="radio" name="theme-menu" value="contrast">
+          <span class="mwp-theme-swatch" data-theme="contrast"><span class="mwp-theme-swatch__bar"></span><span class="mwp-theme-swatch__bar mwp-theme-swatch__bar--muted"></span><span class="mwp-theme-swatch__row"><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--amber"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--teal"></span><span class="mwp-theme-swatch__chip mwp-theme-swatch__chip--card"></span></span></span>
+          <span class="mwp-theme-option__name"><span class="mwp-theme-option__check"></span>High contrast</span>
+        </label>
+      </fieldset>
+      <div class="line-status"><span class="mwp-dot"></span>Phone line live · Quiet hours 9:00 PM to 7:00 AM</div>
       <button class="account" type="button">
         <span class="avatar" aria-hidden="true">DO</span>
         <span class="who"><b>Demo Owner</b><span>Sample Co · Owner</span></span>
-        <svg class="ic" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
+        <svg class="mwp-icon" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></svg>
       </button>
     </div>
   </main>
 
-  <!-- ============ Right panel ============ -->
+  <!-- ============ Right rail ============ -->
   <aside class="right">
     <section aria-label="Needs your approval">
-      <div class="panel-head">
-        <svg class="ic" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-        <h2>Needs your approval</h2>
-        <span class="count" data-approval-count>1</span>
-      </div>
-      <article class="job-card approval-card">
-        <h3>Follow-up email to John Tan at Acme Corp</h3>
-        <p class="to">Drafted by WorkPal · about the proposal and the signed NDA</p>
-        <div class="draft"><b>Draft</b>“Hi John, following up on our proposal and the countersigned NDA. Both are with your team — happy to walk through either on today's sync. Thanks, Sample Co.”</div>
-        <div class="approval-actions" id="approval-actions">
-          <button class="btn-approve" id="btn-approve" type="button">Approve &amp; send</button>
-          <button class="btn-hold" id="btn-hold" type="button">Hold</button>
+      <h2 class="mwp-section-title">
+        <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        Needs your approval <span class="mwp-badge mwp-badge--count" data-approval-count aria-label="1 waiting">1</span>
+      </h2>
+      <article class="mwp-card mwp-card--approval">
+        <h3 class="mwp-card__title">Follow-up email to John Tan at Acme Corp</h3>
+        <p class="mwp-card__body">Drafted by WorkPal about the proposal and the signed NDA</p>
+        <div class="mwp-draft">
+          <p class="mwp-draft__label">Draft</p>
+          <p class="mwp-draft__text">&ldquo;Hi John, following up on our proposal and the countersigned NDA. Both are with your team, and I'm happy to walk through either on today's sync. Thanks, Sample Co.&rdquo;</p>
+        </div>
+        <div class="mwp-actions" id="approval-actions">
+          <button class="mwp-btn mwp-btn--primary" id="btn-approve" type="button">Approve &amp; send</button>
+          <button class="mwp-btn mwp-btn--secondary" id="btn-hold" type="button">Hold</button>
         </div>
         <div class="decision-note" id="decision-note" role="status"></div>
-        <p class="approval-rule"><svg class="ic sm" viewBox="0 0 24 24"><path d="M12 22s8-3.6 8-10V5l-8-3-8 3v7c0 6.4 8 10 8 10z"/><path d="m9 11.5 2 2 4-4"/></svg>WorkPal reads every draft back and waits for your yes. Nothing sends without it.</p>
+        <p class="mwp-assurance">
+          <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+          WorkPal reads every draft back and waits for your yes. Nothing sends without it.
+        </p>
       </article>
     </section>
 
     <section aria-label="Suggested jobs">
-      <div class="panel-head">
-        <svg class="ic" viewBox="0 0 24 24"><path d="M9.5 15.5 2 22l6.5-7.5"/><path d="M14.5 8.5 22 2l-6.5 7.5"/><circle cx="12" cy="12" r="3.2"/></svg>
-        <h2>Suggested jobs</h2>
-      </div>
-      <article class="job-card">
-        <h3>Daily inbox tidy</h3>
-        <p>Labels and archives newsletters and promos each morning, so real mail stands out.</p>
-        <div class="job-meta"><svg class="ic sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Job · Daily
-          <button class="add-btn" type="button" data-add>Add job</button></div>
+      <h2 class="mwp-section-title">
+        <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>
+        Suggested jobs <span class="mwp-badge mwp-badge--sample">Sample data</span>
+      </h2>
+
+      <article class="mwp-card" data-job-card>
+        <h3 class="mwp-card__title">Daily inbox tidy</h3>
+        <p class="mwp-card__body">Labels and archives newsletters and promos each morning, so real mail stands out.</p>
+        <div class="mwp-why">
+          <p class="mwp-why__label"><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>Why this job</p>
+          <p class="mwp-why__text">Your inbox holds over 7,400 unread messages, and newsletters like TLDR send more than 50 of them. Sorting them out each morning lets mail from an actual person stand out.</p>
+          <p class="mwp-based">Based on <span class="mwp-badge"><svg class="mwp-icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>Newsletter emails</span></p>
+        </div>
+        <div class="mwp-card__foot">
+          <span class="mwp-card__meta"><svg class="mwp-icon mwp-icon--sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Job · Daily</span>
+          <button class="mwp-btn mwp-btn--inverse mwp-btn--pill mwp-btn--sm" type="button" data-add>Add job</button>
+        </div>
       </article>
-      <article class="job-card">
-        <h3>Weekly client check-in</h3>
-        <p>Rounds up clients who have gone quiet and drafts a check-in for your approval every Friday.</p>
-        <div class="job-meta"><svg class="ic sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Job · Weekly
-          <button class="add-btn" type="button" data-add>Add job</button></div>
+
+      <article class="mwp-card" data-job-card>
+        <h3 class="mwp-card__title">Brand pitch scam check</h3>
+        <p class="mwp-card__body">Flags each brand pitch as likely real or likely a scam, every week.</p>
+        <div class="mwp-why">
+          <p class="mwp-why__label"><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>Why this job</p>
+          <p class="mwp-why__text">You've received four brand and collab pitches since April, all unanswered and most unread, with several senders whose domains don't match the brands they claim. A weekly check can separate real opportunities from scams before more pile up.</p>
+          <p class="mwp-based">Based on <span class="mwp-badge"><svg class="mwp-icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>Brand pitch emails</span></p>
+        </div>
+        <div class="mwp-card__foot">
+          <span class="mwp-card__meta"><svg class="mwp-icon mwp-icon--sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Job · Weekly</span>
+          <button class="mwp-btn mwp-btn--inverse mwp-btn--pill mwp-btn--sm" type="button" data-add>Add job</button>
+        </div>
+      </article>
+
+      <article class="mwp-card" data-job-card>
+        <h3 class="mwp-card__title">TikTok milestone digest</h3>
+        <p class="mwp-card__body">Summarizes your TikTok favorites, views, and messages each week.</p>
+        <div class="mwp-why">
+          <p class="mwp-why__label"><svg class="mwp-icon" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></svg>Why this job</p>
+          <p class="mwp-why__text">TikTok's milestone emails are the only performance numbers reaching your inbox for Bai Bureh News Network, yet they sit unread. A weekly summary keeps your reach visible without digging through each email.</p>
+          <p class="mwp-based">Based on <span class="mwp-badge"><svg class="mwp-icon" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>TikTok milestone emails</span></p>
+        </div>
+        <div class="mwp-card__foot">
+          <span class="mwp-card__meta"><svg class="mwp-icon mwp-icon--sm" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Job · Weekly</span>
+          <button class="mwp-btn mwp-btn--inverse mwp-btn--pill mwp-btn--sm" type="button" data-add>Add job</button>
+        </div>
       </article>
     </section>
   </aside>
@@ -716,27 +842,29 @@
   <!-- Mobile bottom tab bar -->
   <nav class="tabbar" aria-label="App">
     <button class="tab active" type="button" data-set-view="home">
-      <svg class="ic" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22v-8h6v8"/></svg>Home
+      <svg class="mwp-icon" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22v-8h6v8"/></svg>Home
     </button>
     <button class="tab" type="button" data-set-view="approvals">
-      <svg class="ic" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>Approvals
-      <span class="badge" id="tab-badge">1</span>
+      <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>Approvals
+      <span class="tab-badge" id="tab-badge">1</span>
     </button>
     <a class="tab" href="tel:+12402316158">
-      <svg class="ic" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.08 4.18 2 2 0 0 1 4.06 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call
+      <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Call
     </a>
     <button class="tab" type="button" data-set-view="menu">
-      <svg class="ic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu
+      <svg class="mwp-icon" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>Menu
     </button>
   </nav>
 </div>
 
 <script>
-  // Today's date in the greeting eyebrow
+  // Today's date in the greeting eyebrow: FRIDAY, NOVEMBER 28
   (function(){
     var el = document.getElementById('today-line');
-    var d = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-    el.textContent = d + ' · Sample Co';
+    var d = new Date();
+    var wd = d.toLocaleDateString(undefined, { weekday: 'long' });
+    var md = d.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+    el.textContent = wd + ', ' + md;
   })();
 
   // Mobile view switching (bottom tab bar)
@@ -770,11 +898,16 @@
     });
   })();
 
-  // Suggested jobs: Add toggles to Added, on screen only
+  // Suggested jobs, per the JobCard spec: Add job swaps for an "Added"
+  // badge for three seconds, then the card leaves the suggestions.
   document.querySelectorAll('[data-add]').forEach(function(btn){
     btn.addEventListener('click', function(){
-      var added = btn.classList.toggle('added');
-      btn.textContent = added ? 'Added ✓' : 'Add job';
+      var card = btn.closest('[data-job-card]');
+      var badge = document.createElement('span');
+      badge.className = 'mwp-badge added-badge';
+      badge.textContent = 'Added';
+      btn.replaceWith(badge);
+      setTimeout(function(){ if (card) card.remove(); }, 3000);
     });
   });
 
@@ -790,8 +923,8 @@
   // Mic button: visual listening state (demo)
   var mic = document.getElementById('mic-btn');
   mic.addEventListener('click', function(){
-    var on = mic.classList.toggle('listening');
-    ask.placeholder = on ? 'Listening… (demo)' : 'Ask anything…';
+    var on = mic.classList.toggle('is-listening');
+    ask.placeholder = on ? 'Listening… (demo)' : 'Ask anything...';
     if (on) ask.focus();
   });
 
@@ -815,7 +948,7 @@
       from.textContent = 'WorkPal';
       pal.appendChild(from);
       pal.appendChild(document.createTextNode(
-        'On it. I will draft that and put it in your approval queue — nothing goes out without your yes. (Demo reply: this screen is not wired to the live system yet.)'
+        'On it. WorkPal will draft that and put it in your approval queue — nothing goes out without your yes. (Demo reply: this screen is not wired to the live system yet.)'
       ));
       thread.appendChild(pal);
       pal.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -828,40 +961,31 @@
     }
   });
 
-  // Appearance: theme mode + accent, applied live and saved on this device
+  // Appearance: the design system's ThemePicker. Six choices — Match my
+  // device plus Dark, Light, Midnight, Sand, High contrast. Both pickers
+  // (sidebar + mobile menu) stay in sync; the choice is saved on this
+  // device and applied by setting data-theme on <html>.
   (function(){
     var root = document.documentElement;
     var mq = window.matchMedia('(prefers-color-scheme: dark)');
-    var mode = root.dataset.mode || 'dark';
-    var accent = root.dataset.accent || 'sabi';
+    var pref = root.dataset.themePref || 'dark';
     function apply(){
-      root.dataset.theme = mode === 'system' ? (mq.matches ? 'dark' : 'light') : mode;
-      root.dataset.mode = mode;
-      root.dataset.accent = accent;
-      document.querySelectorAll('[data-appearance]').forEach(function(box){
-        box.querySelectorAll('[data-mode]').forEach(function(b){
-          b.classList.toggle('active', b.dataset.mode === mode);
-        });
-        box.querySelectorAll('[data-accent]').forEach(function(b){
-          b.classList.toggle('active', b.dataset.accent === accent);
-        });
+      var resolved = pref === 'system' ? (mq.matches ? 'dark' : 'light') : pref;
+      root.setAttribute('data-theme', resolved);
+      root.dataset.themePref = pref;
+      root.style.colorScheme = (resolved === 'light' || resolved === 'sand') ? 'light' : 'dark';
+      document.querySelectorAll('[data-theme-picker] input[type="radio"]').forEach(function(r){
+        r.checked = (r.value === pref);
       });
     }
-    function save(){
-      try {
-        localStorage.setItem('mwp-theme-mode', mode);
-        localStorage.setItem('mwp-accent', accent);
-      } catch (e) {}
-    }
-    document.querySelectorAll('[data-appearance]').forEach(function(box){
-      box.querySelectorAll('[data-mode]').forEach(function(b){
-        b.addEventListener('click', function(){ mode = b.dataset.mode; save(); apply(); });
-      });
-      box.querySelectorAll('[data-accent]').forEach(function(b){
-        b.addEventListener('click', function(){ accent = b.dataset.accent; save(); apply(); });
+    document.querySelectorAll('[data-theme-picker]').forEach(function(picker){
+      picker.addEventListener('change', function(e){
+        pref = e.target.value;
+        try { localStorage.setItem('mwp-theme', pref); } catch (err) {}
+        apply();
       });
     });
-    if (mq.addEventListener) mq.addEventListener('change', function(){ if (mode === 'system') apply(); });
+    if (mq.addEventListener) mq.addEventListener('change', function(){ if (pref === 'system') apply(); });
     apply();
   })();
 
